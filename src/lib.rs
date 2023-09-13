@@ -1,8 +1,10 @@
 pub mod decode;
 pub mod bencode {
+    use crate::decode::decode::{decode_dict, decode_int, decode_list, decode_message};
     use core::panic;
+    use std::borrow::BorrowMut;
     use std::collections::HashMap;
-    use crate::decode::decode::{decode_int,decode_dict,decode_message,decode_list};
+    use std::fmt::{Write, write};
     #[derive(Debug, PartialEq)]
     pub enum BencodeVal {
         Message(String),
@@ -53,8 +55,34 @@ pub mod bencode {
             val
         }
 
-        pub fn encode_str(_src: BencodeVal) -> String {
-            String::from("pass")
+        pub fn encode_val(val_ref: &BencodeVal) -> String {
+            match val_ref {
+                BencodeVal::Int(i) => format!("i{i}e"),
+                BencodeVal::Message(s) => format!("{}:{s}", s.len()),
+                BencodeVal::List(l) => Self::encode_list(l),
+                BencodeVal::Dict(d) => Self::encode_dict(d),
+                BencodeVal::Stop => panic!("Stop val passed to encode_val."),
+            }
+        }
+        fn encode_list(v_ref: &Vec<BencodeVal>) -> String {
+            let mut res = String::new();
+            write!(&mut res,"l").unwrap();
+            for val in v_ref {
+                write!(&mut res, "{}",Self::encode_val(&val)).unwrap();
+            }
+            write!(&mut res, "e").unwrap();
+            res
+        }
+
+        fn encode_dict(d_ref: &HashMap<String,BencodeVal>) -> String {
+            let mut res = String::new();
+            write!(&mut res, "d").unwrap();
+            for (k,v) in d_ref.iter() {
+                let key_len = k.len();
+                write!(&mut res, "{key_len}:{k}{}",Self::encode_val(v)).unwrap();
+            }
+            write!(&mut res, "e").unwrap();
+            res
         }
     }
 }
