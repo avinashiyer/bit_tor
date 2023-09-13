@@ -5,7 +5,7 @@ mod bencode_tests {
     fn decode_pos_int() {
         let num = 98;
         let s = format!("i{num}e");
-        let vals = BencodeVal::decode_str(&s);
+        let vals = BencodeVal::decode_all(&s);
         if vals.len() != 1 {
             panic!(
                 "Returned Wrong amount of values. \nExpected: 1 Actual: {}.",
@@ -27,14 +27,14 @@ mod bencode_tests {
     #[should_panic]
     fn bad_terminal_int_decode() {
         let s = String::from("i-45");
-        BencodeVal::decode_dispatch(&mut s.char_indices().peekable());
+        BencodeVal::decode_single(&mut s.char_indices().peekable());
     }
 
     #[test]
     fn neg_int_decode() {
         let num = -32;
         let s = format!("i{num}e");
-        match BencodeVal::decode_dispatch(&mut s.char_indices().peekable()) {
+        match BencodeVal::decode_single(&mut s.char_indices().peekable()) {
             BencodeVal::Int(n) => assert_eq!(n, num),
             _ => {
                 assert!(false)
@@ -45,7 +45,7 @@ mod bencode_tests {
     #[test]
     fn test_message_decode() {
         let s = String::from("12:Hello World!");
-        let res = BencodeVal::decode_dispatch(&mut s.char_indices().peekable());
+        let res = BencodeVal::decode_single(&mut s.char_indices().peekable());
         match res {
             BencodeVal::Message(x) => {
                 assert_eq!(s[3..], x)
@@ -60,13 +60,13 @@ mod bencode_tests {
     #[should_panic]
     fn test_message_short() {
         let s = String::from("12:hello ");
-        BencodeVal::decode_dispatch(&mut s.char_indices().peekable());
+        BencodeVal::decode_single(&mut s.char_indices().peekable());
     }
 
     #[test]
     fn test_message_with_bencoded_vals() {
         let s = "35:abcd12:hello_world!li22ed3:eari45ee";
-        match BencodeVal::decode_dispatch(&mut s.char_indices().peekable()) {
+        match BencodeVal::decode_single(&mut s.char_indices().peekable()) {
             BencodeVal::Message(val) => assert_eq!(s[3..], val),
             _ => {
                 assert!(false)
@@ -77,7 +77,7 @@ mod bencode_tests {
     #[test]
     fn test_decode_multiple_vals_ints() {
         let s = "i33ei-1e";
-        let v = BencodeVal::decode_str(s);
+        let v = BencodeVal::decode_all(s);
         println!("{:?}", v);
         match v[0] {
             BencodeVal::Int(x) => assert_eq!(33, x),
@@ -94,7 +94,7 @@ mod bencode_tests {
     #[test]
     fn test_decode_list_pos() {
         let mut s = "li3e5:hi55ei8e0:e".char_indices().peekable();
-        let v = BencodeVal::decode_dispatch(&mut s);
+        let v = BencodeVal::decode_single(&mut s);
         let vec = match v {
             BencodeVal::List(val) => val,
             _ => panic!("{:?}", v),
@@ -109,7 +109,7 @@ mod bencode_tests {
     #[should_panic]
     fn test_decode_list_no_end() {
         let mut s = "li44ei4e4:abcd".char_indices().peekable();
-        BencodeVal::decode_dispatch(&mut s);
+        BencodeVal::decode_single(&mut s);
     }
     // TODO: Nested List
 
@@ -126,7 +126,7 @@ mod bencode_tests {
                 BencodeVal::Message(String::from("eggs")),
             ),
         ]);
-        let x = BencodeVal::decode_dispatch(&mut s);
+        let x = BencodeVal::decode_single(&mut s);
         if let BencodeVal::Dict(map) = x {
             assert_eq!(map, vals);
         } else {
