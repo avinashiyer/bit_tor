@@ -52,7 +52,7 @@ pub fn decode_list(chars_indices: &mut PeekIter<'_>, mut parent:Vec<BencodeVal>)
     while let Some((_pos,ch)) = chars_indices.peek() {
         match ch {
             'l' => {chars_indices.next();parent.push(decode_list(chars_indices, Vec::<BencodeVal>::new()))}
-            'e' => {chars_indices.next();return BencodeVal::List((parent));}
+            'e' => {chars_indices.next();return BencodeVal::List(parent);}
             _ => {parent.push(BencodeVal::decode_single(chars_indices))}
         }
     }

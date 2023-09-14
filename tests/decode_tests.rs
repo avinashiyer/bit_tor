@@ -145,9 +145,8 @@ mod decode_tests {
 
     #[test]
     fn test_nested_list_str() {
-        let s = "llelee";
-        println!("{:?}",BencodeVal::decode_all(s));
-        assert!(false)
+        let s = "llleee";
+        assert_eq!(BencodeVal::decode_all(s)[0],BencodeVal::List(vec![BencodeVal::List(vec![BencodeVal::List(Vec::<BencodeVal>::new())])]))
     }
 
     #[test]
