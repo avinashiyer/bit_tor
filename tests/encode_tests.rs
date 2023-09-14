@@ -1,7 +1,7 @@
 mod encode_tests {
-    use bit_tor::bencode::BencodeVal;
+    use bit_tor::bencode::Bencode;
     use std::collections::BTreeMap;
-    type B = BencodeVal;
+    type B = Bencode;
 
     #[test]
     fn encode_int_pos() {
@@ -75,8 +75,8 @@ mod encode_tests {
     #[test]
     fn test_dic_simple() {
         let dict = BTreeMap::from(
-            [("tomato".to_string(),BencodeVal::Int(22)),
-            ("".to_owned(),BencodeVal::Message(String::from("ferrr"))),]);
+            [("tomato".to_string(),Bencode::Int(22)),
+            ("".to_owned(),Bencode::Message(String::from("ferrr"))),]);
         let exp = "d0:5:ferrr6:tomatoi22ee";
         let te = B::Dict(dict);
         assert_eq!(te.encode_val(),exp)
@@ -93,7 +93,7 @@ mod encode_tests {
             ("cornchip".to_owned(),B::Message("".to_owned())),
         ]);
         let exp = "d5:alieni44e6:bananali72e6:Animale8:cornchip0:e";
-        let te = BencodeVal::Dict(dict);
+        let te = Bencode::Dict(dict);
         assert_eq!(te.encode_val(),exp)
     }
 

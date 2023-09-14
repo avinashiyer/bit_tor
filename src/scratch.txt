@@ -1,0 +1,37 @@
+// Keep keys seperate for sorted check at end
+    let mut keys = Vec::<String>::new();
+    let mut vals = Vec::<BencodeVal>::new();
+    while chars_indices.peek().is_some() {
+        let key = match Bencode::decode_single(chars_indices) {
+            BencodeVal::Message(s) => s,
+            BencodeVal::Stop => break,
+            other => {
+                panic!(
+                    "Wrong type of BencodeVal returned, \n Returned: {:?}",
+                    other
+                )
+            }
+        };
+        let val = match Bencode::decode_single(chars_indices) {
+            BencodeVal::Stop => {
+                panic!("Key has no matching value. \n Lone key: {}", key.clone())
+            }
+            other => other,
+        };
+        keys.push(key);
+        vals.push(val);
+    }
+    let raws: Vec<&[u8]> = keys.iter().map(|s: &String| s.as_bytes()).collect();
+    if raws.len() > 1 {
+        let asc = raws[0] < raws[1];
+        if asc {
+            if !raws.windows(2).all(|w| w[0] <= w[1]) {
+                panic!("Unsorted keys.")
+            }
+        } else if !raws.windows(2).all(|w| w[0] >= w[1]) {
+            panic!("Unsorted keys.")
+        }
+    }
+    BencodeVal::Dict(BTreeMap::<String, BencodeVal>::from_iter(std::iter::zip(
+        keys, vals,
+    )))

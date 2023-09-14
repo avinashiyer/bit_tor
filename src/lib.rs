@@ -1,3 +1,6 @@
+
+
+
 pub mod decode;
 pub mod bencode {
     use crate::decode::{decode_dict, decode_int, decode_list, decode_message};
@@ -5,22 +8,22 @@ pub mod bencode {
     use std::collections::BTreeMap;
     use std::fmt::Write;
     #[derive(Debug, PartialEq)]
-    pub enum BencodeVal {
+    pub enum Bencode {
         Message(String),
         Int(isize),
-        List(Vec<BencodeVal>),
-        Dict(BTreeMap<String, BencodeVal>),
+        List(Vec<Bencode>),
+        Dict(BTreeMap<String, Bencode>),
         Stop,
     }
 
-    impl BencodeVal {
+    impl Bencode {
         // Convenience method to decode a whole string and return all bencode values in a vec
-        pub fn decode_all(src: &str) -> Vec<BencodeVal> {
-            let mut vals = Vec::<BencodeVal>::new();
+        pub fn decode_all(src: &str) -> Vec<Bencode> {
+            let mut vals = Vec::<Bencode>::new();
             let mut chars_indices = src.char_indices().peekable();
             while chars_indices.peek().is_some() {
                 match Self::decode_single(&mut chars_indices) {
-                    BencodeVal::Stop => break,
+                    Bencode::Stop => break,
                     x => vals.push(x),
                 }
             }
@@ -28,11 +31,11 @@ pub mod bencode {
         }
         pub fn decode_single(
             chars_indices: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-        ) -> BencodeVal {
-            let mut val = BencodeVal::Stop;
+        ) -> Bencode {
+            let mut val = Bencode::Stop;
             if let Some((_pos, ch)) = chars_indices.peek() {
                 val = match ch {
-                    'e' => BencodeVal::Stop,
+                    'e' => Bencode::Stop,
                     'i' => {
                         chars_indices.next();
                         decode_int(chars_indices)
@@ -40,11 +43,11 @@ pub mod bencode {
                     '0'..='9' => decode_message(chars_indices),
                     'l' => {
                         chars_indices.next();
-                        decode_list(chars_indices,Vec::<BencodeVal>::new())
+                        decode_list(chars_indices,Vec::<Bencode>::new())
                     }
                     'd' => {
                         chars_indices.next();
-                        decode_dict(chars_indices)
+                        decode_dict(chars_indices, BTreeMap::<String,Bencode>::new())
                     }
                     _ => {
                         panic!("Strange value in decode dispatch matched: {ch}")
@@ -56,14 +59,14 @@ pub mod bencode {
 
         pub fn encode_val(&self) -> String {
             match self {
-                BencodeVal::Int(i) => format!("i{i}e"),
-                BencodeVal::Message(s) => format!("{}:{s}", s.len()),
-                BencodeVal::List(l) => Self::encode_list(l),
-                BencodeVal::Dict(d) => Self::encode_dict(d),
-                BencodeVal::Stop => panic!("Stop val passed to encode_val."),
+                Bencode::Int(i) => format!("i{i}e"),
+                Bencode::Message(s) => format!("{}:{s}", s.len()),
+                Bencode::List(l) => Self::encode_list(l),
+                Bencode::Dict(d) => Self::encode_dict(d),
+                Bencode::Stop => panic!("Stop val passed to encode_val."),
             }
         }
-        fn encode_list(v_ref: &Vec<BencodeVal>) -> String {
+        fn encode_list(v_ref: &Vec<Bencode>) -> String {
             let mut res = String::new();
             write!(&mut res,"l").unwrap();
             for val in v_ref {
@@ -73,7 +76,7 @@ pub mod bencode {
             res
         }
 
-        fn encode_dict(d_ref: &BTreeMap<String,BencodeVal>) -> String {
+        fn encode_dict(d_ref: &BTreeMap<String,Bencode>) -> String {
             let mut res = String::new();
             write!(&mut res, "d").unwrap();
             for (k,v) in d_ref.iter() {
