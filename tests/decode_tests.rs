@@ -1,6 +1,6 @@
-mod bencode_tests {
+mod decode_tests {
     use bit_tor::bencode::BencodeVal;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     #[test]
     fn decode_pos_int() {
         let num = 98;
@@ -95,14 +95,22 @@ mod bencode_tests {
     fn test_decode_list_pos() {
         let mut s = "li3e5:hi55ei8e0:e".char_indices().peekable();
         let v = BencodeVal::decode_single(&mut s);
-        let vec = match v {
+        let vec = match &v {
             BencodeVal::List(val) => val,
             _ => panic!("{:?}", v),
         };
+        let exp = BencodeVal::List(vec![
+            BencodeVal::Int(3),
+            BencodeVal::Message("hi55e".to_owned()),
+            BencodeVal::Int(8),
+            BencodeVal::Message("".to_owned())
+        ]);
+        // Checks if equality checks between lists is working
         assert_eq!(vec[0], BencodeVal::Int(3));
         assert_eq!(vec[1], BencodeVal::Message(String::from("hi55e")));
         assert_eq!(vec[2], BencodeVal::Int(8));
         assert_eq!(vec[3], BencodeVal::Message(String::from("")));
+        assert_eq!(v,exp);
     }
 
     #[test]
@@ -111,12 +119,41 @@ mod bencode_tests {
         let mut s = "li44ei4e4:abcd".char_indices().peekable();
         BencodeVal::decode_single(&mut s);
     }
-    // TODO: Nested List
+    
+    #[test]
+    fn test_nested_list_decode() {                     
+        let mut s = "li132e2:2:0:li44e0:l4:spamei22ei23ee1:fe".char_indices().peekable();
+        let real = BencodeVal::decode_single(&mut s);
+        let exp = BencodeVal::List(vec![
+            BencodeVal::Int(132),
+            BencodeVal::Message("2:".to_owned()),
+            BencodeVal::Message("".to_owned()),
+            BencodeVal::List(vec![
+                BencodeVal::Int(44),
+                BencodeVal::Message("".to_owned()),
+                BencodeVal::List(vec![
+                    BencodeVal::Message("spam".to_owned()),
+                ]),
+                BencodeVal::Int(22),
+                BencodeVal::Int(23),
+            ]),
+            BencodeVal::Message("f".to_owned()),
+        ]);
+        println!("{}",exp.encode_val());
+        assert_eq!(real,exp)
+    }
+
+    #[test]
+    fn test_nested_list_str() {
+        let s = "llelee";
+        println!("{:?}",BencodeVal::decode_all(s));
+        assert!(false)
+    }
 
     #[test]
     fn test_dict_decode_pos() {
         let mut s = "d3:cow3:moo4:spam4:eggse".char_indices().peekable();
-        let vals = HashMap::from([
+        let vals = BTreeMap::from([
             (
                 String::from("cow"),
                 BencodeVal::Message(String::from("moo")),

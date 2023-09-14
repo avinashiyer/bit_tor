@@ -1,16 +1,15 @@
 pub mod decode;
 pub mod bencode {
-    use crate::decode::decode::{decode_dict, decode_int, decode_list, decode_message};
+    use crate::decode::{decode_dict, decode_int, decode_list, decode_message};
     use core::panic;
-    use std::borrow::BorrowMut;
-    use std::collections::HashMap;
-    use std::fmt::{Write, write};
+    use std::collections::BTreeMap;
+    use std::fmt::Write;
     #[derive(Debug, PartialEq)]
     pub enum BencodeVal {
         Message(String),
         Int(isize),
         List(Vec<BencodeVal>),
-        Dict(HashMap<String, BencodeVal>),
+        Dict(BTreeMap<String, BencodeVal>),
         Stop,
     }
 
@@ -27,8 +26,8 @@ pub mod bencode {
             }
             vals
         }
-        pub fn decode_single<'a>(
-            mut chars_indices: &mut std::iter::Peekable<std::str::CharIndices<'a>>,
+        pub fn decode_single(
+            chars_indices: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
         ) -> BencodeVal {
             let mut val = BencodeVal::Stop;
             if let Some((_pos, ch)) = chars_indices.peek() {
@@ -36,16 +35,16 @@ pub mod bencode {
                     'e' => BencodeVal::Stop,
                     'i' => {
                         chars_indices.next();
-                        decode_int(&mut chars_indices)
+                        decode_int(chars_indices)
                     }
-                    '0'..='9' => decode_message(&mut chars_indices),
+                    '0'..='9' => decode_message(chars_indices),
                     'l' => {
                         chars_indices.next();
-                        decode_list(&mut chars_indices)
+                        decode_list(chars_indices,Vec::<BencodeVal>::new())
                     }
                     'd' => {
                         chars_indices.next();
-                        decode_dict(&mut chars_indices)
+                        decode_dict(chars_indices)
                     }
                     _ => {
                         panic!("Strange value in decode dispatch matched: {ch}")
@@ -55,8 +54,8 @@ pub mod bencode {
             val
         }
 
-        pub fn encode_val(val_ref: &BencodeVal) -> String {
-            match val_ref {
+        pub fn encode_val(&self) -> String {
+            match self {
                 BencodeVal::Int(i) => format!("i{i}e"),
                 BencodeVal::Message(s) => format!("{}:{s}", s.len()),
                 BencodeVal::List(l) => Self::encode_list(l),
@@ -68,13 +67,13 @@ pub mod bencode {
             let mut res = String::new();
             write!(&mut res,"l").unwrap();
             for val in v_ref {
-                write!(&mut res, "{}",Self::encode_val(&val)).unwrap();
+                write!(&mut res, "{}",(val).encode_val()).unwrap();
             }
             write!(&mut res, "e").unwrap();
             res
         }
 
-        fn encode_dict(d_ref: &HashMap<String,BencodeVal>) -> String {
+        fn encode_dict(d_ref: &BTreeMap<String,BencodeVal>) -> String {
             let mut res = String::new();
             write!(&mut res, "d").unwrap();
             for (k,v) in d_ref.iter() {
