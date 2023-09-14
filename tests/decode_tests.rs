@@ -148,10 +148,9 @@ mod decode_tests {
         let s = "llleee";
         assert_eq!(
             Bencode::decode_all(s)[0],
-            Bencode::List(vec![Bencode::List(vec![Bencode::List(Vec::<
-                Bencode,
-            >::new(
-            ))])])
+            Bencode::List(vec![Bencode::List(vec![Bencode::List(
+                Vec::<Bencode>::new()
+            )])])
         )
     }
 
@@ -159,14 +158,8 @@ mod decode_tests {
     fn test_dict_decode_pos() {
         let mut s = "d3:cow3:moo4:spam4:eggse".char_indices().peekable();
         let vals = BTreeMap::from([
-            (
-                String::from("cow"),
-                Bencode::Message(String::from("moo")),
-            ),
-            (
-                String::from("spam"),
-                Bencode::Message(String::from("eggs")),
-            ),
+            (String::from("cow"), Bencode::Message(String::from("moo"))),
+            (String::from("spam"), Bencode::Message(String::from("eggs"))),
         ]);
         let x = Bencode::decode_single(&mut s);
         if let Bencode::Dict(map) = x {
@@ -189,6 +182,19 @@ mod decode_tests {
                 Bencode::Dict(BTreeMap::<String, Bencode>::new()),
             ),
         ]));
-        assert_eq!(Bencode::decode_single(&mut s),exp);
+        assert_eq!(Bencode::decode_single(&mut s), exp);
+    }
+
+    #[test]
+    fn test_3_nested_dict_decode() {
+        let mut s = "d2:aad3:bfgdeee".char_indices().peekable();
+        let exp = Bencode::Dict(BTreeMap::from([(
+            "aa".to_owned(),
+            Bencode::Dict(BTreeMap::from([(
+                "bfg".to_owned(),
+                Bencode::Dict(BTreeMap::<String, Bencode>::new()),
+            )])),
+        )]));
+        assert_eq!(Bencode::decode_single(&mut s),exp)
     }
 }

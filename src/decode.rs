@@ -1,4 +1,5 @@
 use crate::bencode::Bencode;
+use core::panic;
 use std::collections::BTreeMap;
 type PeekIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
@@ -7,10 +8,8 @@ type PeekIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 ///Output: Bencode::Int({num}) where num is the parsed number
 ///Panics:
 ///     1) No terminal 'e' within stream
-///     2) string is not parsable as an int (excluding e) 
-pub fn decode_int(
-    chars_indices: &mut PeekIter<'_>,
-) -> Bencode{
+///     2) string is not parsable as an int (excluding e)
+pub fn decode_int(chars_indices: &mut PeekIter<'_>) -> Bencode {
     //TODO: add leading zeroes/ negative 0 check
     let mut last_matched: char = '\0';
     let s: String = chars_indices
@@ -46,21 +45,40 @@ pub fn decode_message(chars_indices: &mut PeekIter<'_>) -> Bencode {
     }
     Bencode::Message(s)
 }
-pub fn decode_list(chars_indices: &mut PeekIter<'_>, mut parent:Vec<Bencode>) -> Bencode {
-    while let Some((_pos,ch)) = chars_indices.peek() {
+pub fn decode_list(chars_indices: &mut PeekIter<'_>, mut parent: Vec<Bencode>) -> Bencode {
+    while let Some((_pos, ch)) = chars_indices.peek() {
         match ch {
-            'l' => {chars_indices.next();parent.push(decode_list(chars_indices, Vec::<Bencode>::new()))}
-            'e' => {chars_indices.next();return Bencode::List(parent);}
-            _ => {parent.push(Bencode::decode_single(chars_indices))}
+            'l' => {
+                chars_indices.next();
+                parent.push(decode_list(chars_indices, Vec::<Bencode>::new()))
+            }
+            'e' => {
+                chars_indices.next();
+                return Bencode::List(parent);
+            }
+            _ => parent.push(Bencode::decode_single(chars_indices)),
         }
     }
     panic!("No terminal???")
 }
-
-pub fn decode_dict(chars_indices: &mut PeekIter<'_>, parent:BTreeMap<String,Bencode>) -> Bencode {
-    while let Some((_pos,ch)) = chars_indices.peek() {
-        if !ch.is_ascii_digit() {
-            panic!("Ill formatted key value in pair within dictionary. \nIter Dump: {:?}",chars_indices.collect());
+pub fn decode_dict(
+    chars_indices: &mut PeekIter<'_>,
+    mut parent: BTreeMap<String, Bencode>,
+) -> Bencode {
+    while let Some((_pos, ch)) = chars_indices.peek() {
+        match ch {
+            'e' => {
+                println!("BEFORE KEY\n\n\n\n{} {:?}\n\n\n\n", *ch, parent);
+                chars_indices.next();
+                return Bencode::Dict(parent);
+            }
+            c if !c.is_ascii_digit() => {
+                panic!(
+                    "Ill formatted key value in pair within dictionary. \nIter Dump: {:?}",
+                    chars_indices.collect::<Vec<_>>()
+                )
+            }
+            _ => {}
         }
         let key;
         if let Bencode::Message(k) = decode_message(chars_indices) {
@@ -68,10 +86,26 @@ pub fn decode_dict(chars_indices: &mut PeekIter<'_>, parent:BTreeMap<String,Benc
         } else {
             panic!("decode message returned a strange bencode. Expected to return Bencode::Message")
         }
-        let match chars_indices.peek() {
-            Some((_pos,ch))
+        let val = match chars_indices.peek() {
+                Some((_pos, ch)) => match ch {
+                'd' => {
+                    chars_indices.next();
+                    decode_dict(chars_indices, BTreeMap::<String, Bencode>::new())
+                }
+                'e' => {
+                    panic!("{key} has no corresponding value.")
+                }
+                _ => {
+                    Bencode::decode_single(chars_indices)
+                }
+            },
+            None => {
+                panic!("{key} has no corresponding value. ")
+            }
+        };
+        if parent.insert(key, val).is_some() {
+            panic!("Duplicate key passed to dict");
         }
-
     }
-    Bencode::Stop;
+    Bencode::Stop
 }
