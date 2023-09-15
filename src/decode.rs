@@ -68,7 +68,6 @@ pub fn decode_dict(
     while let Some((_pos, ch)) = chars_indices.peek() {
         match ch {
             'e' => {
-                println!("BEFORE KEY\n\n\n\n{} {:?}\n\n\n\n", *ch, parent);
                 chars_indices.next();
                 return Bencode::Dict(parent);
             }
