@@ -4,7 +4,7 @@ mod decode_tests {
     #[test]
     fn decode_pos_int() {
         let num = 98;
-        let s = format!("i{num}e");
+        let s = format!("i{num}e").as_bytes();
         let vals = Bencode::decode_all(&s);
         if vals.len() != 1 {
             panic!(

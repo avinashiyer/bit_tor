@@ -1,8 +1,17 @@
 use bit_tor::bencode::Bencode;
+use std::fs;
+use std::io::prelude::*;
 
+// use std::net::TcpListener;
+// use std::net::TcpStream;
+// use std::thread;
+// use std::time::Duration;
 
 fn main() {
-    let s = "d4:infod9:file treed4:dir1d4:dir2d9:fileA.txtd0:d6:lengthi1024e11:pieces root32:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaeeeeeee";
-    println!("{:#?}",Bencode::decode_all(s)[0]);
-    println!("Hello, world!");
+    let mut file = fs::File::open("/home/avi/rust_prac/bit_tor/src/big-buck-bunny.torrent").unwrap();
+    let mut buf = Vec::<u8>::new();
+    file.read(&mut buf).unwrap();
+    println!("{:#?}",Bencode::decode_all(&buf)); 
+
+
 }
