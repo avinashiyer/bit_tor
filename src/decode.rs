@@ -1,7 +1,6 @@
 use crate::bencode::Bencode;
 use core::panic;
 use std::collections::BTreeMap;
-use std::io::Read;
 use std::iter::Peekable;
 use std::slice::Iter;
 
@@ -13,33 +12,53 @@ use std::slice::Iter;
 ///     2) string is not parsable as an int (excluding e)
 pub fn decode_int(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
     let mut last_matched: u8 = b'\0';
-    let mut literals: Vec<u8> = byte_string
+    let mut neg = false;
+    let mut first_char: Option<u8> = None;
+    if let Some(val) = byte_string.peek() {
+        first_char = Some(**val);
+        if **val == b'-' {
+            byte_string.next();
+            neg = true;
+        }
+    }
+    let literals: Vec<u8> = byte_string
         .take_while(|c| {
             last_matched = **c;
             last_matched != b'e'
         })
-        .map(|c| *c - b'0')
+        .map(|c| {
+            println!("c:{}b{}", *c, b'0');
+            *c - b'0'
+        })
         .collect();
     if last_matched != b'e' {
         panic!()
     }
-    let mut lit_iter = literals.iter();
-    let first_char = literals.first();
-    let mut neg:bool = false;
-    if let Some(c) = first_char {if *c == b'-' {lit_iter.next();neg = true;}}
-    let mut acc: isize = lit_iter.fold(0usize, |acc, elem| flatten_number_step(acc, *elem)).try_into().unwrap();
-    if neg {acc = -acc;}
+    let mut acc: isize = literals.iter()
+        .fold(0usize, |acc, elem| flatten_number_step(acc, *elem))
+        .try_into()
+        .unwrap();
+    if neg {
+        acc = -acc;
+    }
     if let Some(c) = first_char {
-        if *c == b'0' && acc != 0 {panic!("leading zeroes found in decode_int.")}
-        if neg && acc == 0 {panic!("Negative 0 found in decode_int")}
+        if c == b'0' && acc != 0 {
+            panic!("leading zeroes found in decode_int.")
+        }
+        if neg && acc == 0 {
+            panic!("Negative 0 found in decode_int")
+        }
     }
     Bencode::Int(acc)
 }
 
-fn flatten_number_step(acc:usize, elem:u8) -> usize {
+fn flatten_number_step(acc: usize, elem: u8) -> usize {
     match elem {
-        0..=9 => return acc*10 + (elem as usize),
-        x => panic!("Non ascii digit character within integer string. Namely {}",(x + b'0') as char),
+        0..=9 => return acc * 10 + (elem as usize),
+        x => panic!(
+            "Non ascii digit character within integer string. Namely {}",
+            (x + b'0') as char
+        ),
     }
 }
 
@@ -109,12 +128,18 @@ pub fn decode_dict(
                     decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())
                 }
                 b'e' => {
-                    panic!("{} has no corresponding value.",String::from_utf8_lossy(&key))
+                    panic!(
+                        "{} has no corresponding value.",
+                        String::from_utf8_lossy(&key)
+                    )
                 }
                 _ => Bencode::decode_single(byte_string),
             },
             None => {
-                panic!("{} has no corresponding value.",String::from_utf8_lossy(&key))
+                panic!(
+                    "{} has no corresponding value.",
+                    String::from_utf8_lossy(&key)
+                )
             }
         };
         if parent.insert(key, val).is_some() {

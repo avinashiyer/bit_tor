@@ -5,15 +5,15 @@ use std::fmt::Write;
 use std::iter::Peekable;
 use std::slice::Iter;
 #[derive(Debug, PartialEq)]
-pub enum Bencode<'a> {
-    Message(&'a[u8]),
+pub enum Bencode {
+    Message(Vec<u8>),
     Int(isize),
-    List(Vec<Bencode<'a>>),
-    Dict(BTreeMap<&'a[u8], Bencode<'a>>),
+    List(Vec<Bencode>),
+    Dict(BTreeMap<Vec<u8>, Bencode>),
     Stop,
 }
 
-impl<'a> Bencode<'a> {
+impl Bencode {
     // Convenience method to decode a whole string and return all bencode values in a vec
     pub fn decode_all(src: &Vec<u8>) -> Vec<Bencode> {
         let mut vals = Vec::<Bencode>::new();
