@@ -1,7 +1,7 @@
 use crate::decode::{decode_dict, decode_int, decode_list, decode_message};
 use core::panic;
 use std::collections::BTreeMap;
-use std::fmt::Write;
+use std::fmt::{Write, Display};
 use std::iter::Peekable;
 use std::slice::Iter;
 #[derive(Debug, PartialEq)]
@@ -15,10 +15,14 @@ pub enum Bencode {
 
 impl Bencode {
     // Convenience method to decode a whole string and return all bencode values in a vec
-    pub fn decode_all(src: &Vec<u8>) -> Vec<Bencode> {
+    pub fn decode_all(src: &[u8]) -> Vec<Bencode> {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
+        let mut count = 0;
+        println!("Entered Decode All");
         while it.peek().is_some() {
+            count += 1;
+            println!("{count}");
             match Self::decode_single(&mut it) {
                 Bencode::Stop => break,
                 x => vals.push(x),
@@ -86,5 +90,29 @@ impl Bencode {
         }
         write!(&mut res, "e").unwrap();
         res
+    }
+}
+
+impl Display for Bencode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Bencode::Dict(d) => {
+                write!(f,"Dict{{\n").expect("Error Displaying Bencode {self:?}");
+                for (k,v) in d {
+                    write!(f,"\t{} : {},\n",String::from_utf8_lossy(k),v).expect("Error Displaying Bencode {self:?}");
+                }
+                write!(f,"}}\n")
+            }
+            Bencode::Int(i) => {write!(f,"Int({})",i)}
+            Bencode::List(l) => {
+                write!(f,"List[\n").expect("Error Displaying Bencode {self:?}");
+                for v in l {
+                    write!(f,"\t{},\n",v).expect("Error Displaying Bencode {self:?}");
+                }
+                write!(f,"]\n")
+        }
+            Bencode::Message(s) => {write!(f,"Message({})",String::from_utf8_lossy(s))}
+            Bencode::Stop => {write!(f,"Stop")}
+        }
     }
 }

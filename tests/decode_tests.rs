@@ -43,6 +43,41 @@ mod decode_tests {
     }
 
     #[test]
+    #[should_panic]
+    fn leading_zeros() {
+        let mut s = "i03e".as_bytes().iter().peekable();
+        Bencode::decode_single( &mut s);
+    }
+
+    #[test]
+    #[should_panic]
+    fn neg_zero() {
+        let mut s = "i-0e".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
+    }
+
+    #[test]
+    #[should_panic]
+    fn leading_zeroes_zeroes() {
+        let mut s = "i000e".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
+    }
+
+    #[test]
+    #[should_panic]
+    fn leading_zeroes_zero() {
+        let mut s = "i00e".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
+    }
+
+    #[test]
+    #[should_panic]
+    fn leading_zeroes_neg_zero() {
+        let mut s = "i-00e".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
+    }
+
+    #[test]
     fn test_message_decode() {
         let s = String::from("12:Hello World!").as_bytes().to_vec();
         let res = Bencode::decode_single(&mut s.iter().peekable());
@@ -196,5 +231,25 @@ mod decode_tests {
             )])),
         )]));
         assert_eq!(Bencode::decode_single(&mut s),exp)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_unsorted_dict_keys_short() {
+        let mut s = "d1:a2:bb1:z2:cc1:b2:gge".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
+    }
+
+    #[test]
+    fn test_unsorted_dict_keys_nested() {
+        let mut s = "d1:xi22e1:sd1:ti66ee1:ai1ee".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_duplicate_keys() {
+        let mut s = "d2:avi22e2:av4:bveee".as_bytes().iter().peekable();
+        Bencode::decode_single(&mut s);
     }
 }

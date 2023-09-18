@@ -1,5 +1,6 @@
 use crate::bencode::Bencode;
 use core::panic;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::iter::Peekable;
 use std::slice::Iter;
@@ -26,15 +27,13 @@ pub fn decode_int(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
             last_matched = **c;
             last_matched != b'e'
         })
-        .map(|c| {
-            println!("c:{}b{}", *c, b'0');
-            *c - b'0'
-        })
+        .map(|c| *c - b'0')
         .collect();
     if last_matched != b'e' {
         panic!()
     }
-    let mut acc: isize = literals.iter()
+    let mut acc: isize = literals
+        .iter()
         .fold(0usize, |acc, elem| flatten_number_step(acc, *elem))
         .try_into()
         .unwrap();
@@ -42,7 +41,7 @@ pub fn decode_int(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
         acc = -acc;
     }
     if let Some(c) = first_char {
-        if c == b'0' && acc != 0 {
+        if c == b'0' && literals.len() > 1 {
             panic!("leading zeroes found in decode_int.")
         }
         if neg && acc == 0 {
@@ -54,7 +53,7 @@ pub fn decode_int(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
 
 fn flatten_number_step(acc: usize, elem: u8) -> usize {
     match elem {
-        0..=9 => return acc * 10 + (elem as usize),
+        0..=9 => acc * 10 + (elem as usize),
         x => panic!(
             "Non ascii digit character within integer string. Namely {}",
             (x + b'0') as char
@@ -66,10 +65,10 @@ pub fn decode_message(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
     let num = byte_string
         .take_while(|c| **c != b':')
         .map(|c| *c - b'0')
-        .fold(0usize, |acc, elem| flatten_number_step(acc, elem));
+        .fold(0usize, flatten_number_step);
 
     // Take num chars from iter
-    let s: Vec<u8> = byte_string.take(num).map(|c| *c).collect();
+    let s: Vec<u8> = byte_string.take(num).copied().collect();
     if s.len() != num {
         panic!(
             "String passed did not have number of bytes specified.
@@ -97,19 +96,27 @@ pub fn decode_list(byte_string: &mut Peekable<Iter<'_, u8>>, mut parent: Vec<Ben
     }
     panic!("No terminal???")
 }
+
 pub fn decode_dict(
     byte_string: &mut Peekable<Iter<'_, u8>>,
     mut parent: BTreeMap<Vec<u8>, Bencode>,
 ) -> Bencode {
+    let mut key_val_pairs = Vec::<(Vec<u8>, Bencode)>::new();
     while let Some(ch) = byte_string.peek() {
         match ch {
             b'e' => {
                 byte_string.next();
-                return Bencode::Dict(parent);
+                check_keys_sorted(&key_val_pairs);
+                for (k,v) in key_val_pairs {
+                    if let Some(_) = parent.insert(k, v) {
+                        panic!("Duplicate key");
+                    }
+                }
+                return Bencode::Dict(parent)
             }
             c if !c.is_ascii_digit() => {
                 panic!(
-                    "Ill formatted key value in pair within dictionary. \nIter Dump: {:?}",
+                    "Ill formatted key within dictionary. \nIter Dump: {:?}",
                     byte_string.collect::<Vec<_>>()
                 )
             }
@@ -121,30 +128,47 @@ pub fn decode_dict(
         } else {
             panic!("decode message returned a strange bencode. Expected to return Bencode::Message")
         }
-        let val = match byte_string.peek() {
-            Some(ch) => match ch {
-                b'd' => {
-                    byte_string.next();
-                    decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())
-                }
-                b'e' => {
-                    panic!(
-                        "{} has no corresponding value.",
-                        String::from_utf8_lossy(&key)
-                    )
-                }
-                _ => Bencode::decode_single(byte_string),
-            },
-            None => {
+        let val = get_value(byte_string, &key);
+        key_val_pairs.push((key, val));
+    }
+    Bencode::Stop
+}
+
+fn check_keys_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>) {
+    if key_val_pairs.len() > 2 {
+        let key_ordering = key_val_pairs[0].0.cmp(&key_val_pairs[1].0);
+        let is_sorted = (0..key_val_pairs.len() - 1)
+            .all(|i| check_sorted(&key_val_pairs, i, key_ordering));
+        if !is_sorted {panic!("Unsorted keys in dictionary")}
+    }
+}
+
+// https://rust-lang.github.io/rfcs/2351-is-sorted.html
+fn check_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>, i: usize, key_ordering: Ordering) -> bool {
+    key_val_pairs[i].0.cmp(&key_val_pairs[i + 1].0) == key_ordering
+}
+
+fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &Vec<u8>) -> Bencode {
+    let val = match byte_string.peek() {
+        Some(ch) => match ch {
+            b'd' => {
+                byte_string.next();
+                decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())
+            }
+            b'e' => {
                 panic!(
                     "{} has no corresponding value.",
                     String::from_utf8_lossy(&key)
                 )
             }
-        };
-        if parent.insert(key, val).is_some() {
-            panic!("Duplicate key passed to dict");
+            _ => Bencode::decode_single(byte_string),
+        },
+        None => {
+            panic!(
+                "{} has no corresponding value.",
+                String::from_utf8_lossy(&key)
+            )
         }
-    }
-    Bencode::Stop
+    };
+    val
 }
