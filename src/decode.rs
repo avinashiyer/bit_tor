@@ -108,7 +108,7 @@ pub fn decode_dict(
                 byte_string.next();
                 check_keys_sorted(&key_val_pairs);
                 for (k,v) in key_val_pairs {
-                    if let Some(_) = parent.insert(k, v) {
+                    if parent.insert(k, v).is_some() {
                         panic!("Duplicate key");
                     }
                 }
@@ -138,17 +138,17 @@ fn check_keys_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>) {
     if key_val_pairs.len() > 2 {
         let key_ordering = key_val_pairs[0].0.cmp(&key_val_pairs[1].0);
         let is_sorted = (0..key_val_pairs.len() - 1)
-            .all(|i| check_sorted(&key_val_pairs, i, key_ordering));
+            .all(|i| check_sorted(key_val_pairs, i, key_ordering));
         if !is_sorted {panic!("Unsorted keys in dictionary")}
     }
 }
 
 // https://rust-lang.github.io/rfcs/2351-is-sorted.html
-fn check_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>, i: usize, key_ordering: Ordering) -> bool {
+fn check_sorted(key_val_pairs: &[(Vec<u8>, Bencode)], i: usize, key_ordering: Ordering) -> bool {
     key_val_pairs[i].0.cmp(&key_val_pairs[i + 1].0) == key_ordering
 }
 
-fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &Vec<u8>) -> Bencode {
+fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &[u8]) -> Bencode {
     let val = match byte_string.peek() {
         Some(ch) => match ch {
             b'd' => {
@@ -158,7 +158,7 @@ fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &Vec<u8>) -> Bencode
             b'e' => {
                 panic!(
                     "{} has no corresponding value.",
-                    String::from_utf8_lossy(&key)
+                    String::from_utf8_lossy(key)
                 )
             }
             _ => Bencode::decode_single(byte_string),
@@ -166,7 +166,7 @@ fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &Vec<u8>) -> Bencode
         None => {
             panic!(
                 "{} has no corresponding value.",
-                String::from_utf8_lossy(&key)
+                String::from_utf8_lossy(key)
             )
         }
     };

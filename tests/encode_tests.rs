@@ -5,41 +5,45 @@ mod encode_tests {
     #[test]
     fn encode_int_pos() {
         let to_encode = Bencode::Int(234);
-        assert_eq!(to_encode.encode_val(),"i234e");
+        let exp = [105u8,50,51,52,101];
+        assert_eq!(to_encode.encode_val(),exp);
     }
 
     #[test]
     fn encode_int_neg() {
         let to_encode = Bencode::Int(-12);
-        assert_eq!(to_encode.encode_val(),"i-12e")
+        let exp = [105u8,45,49,50,101];
+        assert_eq!(to_encode.encode_val(),exp)
     }
 
     #[test]
     fn encode_int_zero() {
         let te = Bencode::Int(0);
-        assert_eq!(te.encode_val(),"i0e")
+        assert_eq!(te.encode_val(),[105u8,48,101])
     }
 
     #[test]
     fn test_message_norm(){
         let s = "on_god_on_god".as_bytes().to_vec();
-        let len = s.len();
         let te = Bencode::Message(s);
-        assert_eq!(te.encode_val(),format!("{len}:{}","on_god_on_god"))
+        let exp = [49u8,51,58,111,110,95,103,111,100,95,111,110,95,103,111,100];
+        assert_eq!(te.encode_val(),exp)
     }
 
     #[test]
     fn test_message_empty() {
         let te = Bencode::Message("".as_bytes().to_vec());
-        assert_eq!(te.encode_val(),"0:")
+        assert_eq!(te.encode_val(),[48u8,58])
     }
 
     #[test]
     fn test_message_numeric() {
-        let s = "115486555".as_bytes().to_vec();
-        let l = s.len();
+        let mut s = "115486555".as_bytes().to_vec();
+        let mut l = s.len().to_string().as_bytes().to_vec();
+        l.push(b':');
         let te = Bencode::Message(s.clone());
-        assert_eq!(te.encode_val(),format!("{l}:{}",String::from_utf8(s).expect("could not convert from to utf8")))
+        l.append(&mut s);
+        assert_eq!(te.encode_val(),l)
     }
 
     #[test]
@@ -51,7 +55,7 @@ mod encode_tests {
             Bencode::Int(0),
         );
         let te = Bencode::List(v);
-        let expected = String::from("li22e4:spam0:i0ee");
+        let expected = "li22e4:spam0:i0ee".as_bytes().to_vec();
         assert_eq!(te.encode_val(),expected)
     }
 
@@ -67,7 +71,7 @@ mod encode_tests {
             Bencode::Int(366)
         );
         let te = Bencode::List(v);
-        let expected = "l3:CoWli-33e4:eggsi234eei366ee";
+        let expected = "l3:CoWli-33e4:eggsi234eei366ee".as_bytes().to_vec();
         assert_eq!(te.encode_val(),expected)
     }
 
@@ -76,7 +80,7 @@ mod encode_tests {
         let dict = BTreeMap::from(
             [("tomato".as_bytes().to_vec(),Bencode::Int(22)),
             ("".as_bytes().to_vec(),Bencode::Message("ferrr".as_bytes().to_vec())),]);
-        let exp = "d0:5:ferrr6:tomatoi22ee";
+        let exp = "d0:5:ferrr6:tomatoi22ee".as_bytes().to_vec();
         let te = Bencode::Dict(dict);
         assert_eq!(te.encode_val(),exp)
     }
@@ -91,7 +95,7 @@ mod encode_tests {
             ])),
             ("cornchip".as_bytes().to_vec(),Bencode::Message("".as_bytes().to_vec())),
         ]);
-        let exp = "d5:alieni44e6:bananali72e6:Animale8:cornchip0:e";
+        let exp = "d5:alieni44e6:bananali72e6:Animale8:cornchip0:e".as_bytes().to_vec();
         let te = Bencode::Dict(dict);
         assert_eq!(te.encode_val(),exp)
     }
@@ -109,7 +113,7 @@ mod encode_tests {
             ("23".as_bytes().to_vec(),Bencode::Int(22)),
             ("zebra".as_bytes().to_vec(),Bencode::Message("animalhide".as_bytes().to_vec()))
         ]));
-        let exp = "d2:23i22e6:annuali111e4:dictd7:Renfairi-12e6:goblin6:li23eee5:zebra10:animalhidee";
+        let exp = "d2:23i22e6:annuali111e4:dictd7:Renfairi-12e6:goblin6:li23eee5:zebra10:animalhidee".as_bytes().to_vec();
         assert_eq!(te.encode_val(),exp)
     }
 

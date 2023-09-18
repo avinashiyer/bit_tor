@@ -174,7 +174,7 @@ mod decode_tests {
             ]),
             Bencode::Message("f".as_bytes().to_owned()),
         ]);
-        println!("{}", exp.encode_val());
+        println!("{}", String::from_utf8(exp.encode_val()).expect("Error converting exp to string"));
         assert_eq!(real, exp)
     }
 

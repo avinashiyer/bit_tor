@@ -1,7 +1,7 @@
 use crate::decode::{decode_dict, decode_int, decode_list, decode_message};
 use core::panic;
 use std::collections::BTreeMap;
-use std::fmt::{Write, Display};
+use std::fmt::Display;
 use std::iter::Peekable;
 use std::slice::Iter;
 #[derive(Debug, PartialEq)]
@@ -18,11 +18,7 @@ impl Bencode {
     pub fn decode_all(src: &[u8]) -> Vec<Bencode> {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
-        let mut count = 0;
-        println!("Entered Decode All");
         while it.peek().is_some() {
-            count += 1;
-            println!("{count}");
             match Self::decode_single(&mut it) {
                 Bencode::Stop => break,
                 x => vals.push(x),
@@ -58,58 +54,66 @@ impl Bencode {
         val
     }
 
-    pub fn encode_val(&self) -> String {
+    pub fn encode_val(&self) -> Vec<u8> {
         match self {
-            Bencode::Int(i) => format!("i{i}e"),
-            Bencode::Message(s) => {
-                let s_str = String::from_utf8_lossy(s);
-                let s_str_len = s_str.len();
-                format!("{}:{}", s_str_len, s_str)}
+            Bencode::Int(i) => format!("i{i}e").as_bytes().to_vec(),
+            Bencode::Message(s) => encode_message(s),
             Bencode::List(l) => Self::encode_list(l),
             Bencode::Dict(d) => Self::encode_dict(d),
             Bencode::Stop => panic!("Stop val passed to encode_val."),
         }
     }
-    fn encode_list(v_ref: &Vec<Bencode>) -> String {
-        let mut res = String::new();
-        write!(&mut res, "l").unwrap();
+
+
+    fn encode_list(v_ref: &Vec<Bencode>) -> Vec<u8> {
+        let mut res = Vec::new();
+        res.push(b'l');
         for val in v_ref {
-            write!(&mut res, "{}", (val).encode_val()).unwrap();
+            res.append(&mut val.encode_val())
         }
-        write!(&mut res, "e").unwrap();
+        res.push(b'e');
         res
     }
 
-    fn encode_dict(d_ref: &BTreeMap<Vec<u8>, Bencode>) -> String {
-        let mut res = String::new();
-        write!(&mut res, "d").unwrap();
+    fn encode_dict(d_ref: &BTreeMap<Vec<u8>, Bencode>) -> Vec<u8> {
+        let mut res = Vec::new();
+        res.push(b'd');
         for (k, v) in d_ref.iter() {
-            let k_str = String::from_utf8_lossy(k);
-            let key_len = k_str.len();
-            write!(&mut res, "{key_len}:{k_str}{}", Self::encode_val(v)).unwrap();
+            let mut len = k.len().to_string().as_bytes().to_vec();
+            res.append(&mut len);
+            res.push(b':');
+            res.append(&mut k.clone());
+            res.append(&mut v.encode_val())
         }
-        write!(&mut res, "e").unwrap();
+        res.push(b'e');
         res
     }
+}
+
+fn encode_message(s: &Vec<u8>) -> Vec<u8> {
+    let mut s_vec = s.len().to_string().as_bytes().to_vec();
+    s_vec.push(b':');
+    s_vec.append(&mut s.clone());
+    s_vec
 }
 
 impl Display for Bencode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Bencode::Dict(d) => {
-                write!(f,"Dict{{\n").expect("Error Displaying Bencode {self:?}");
+                writeln!(f,"Dict{{").expect("Error Displaying Bencode {self:?}");
                 for (k,v) in d {
-                    write!(f,"\t{} : {},\n",String::from_utf8_lossy(k),v).expect("Error Displaying Bencode {self:?}");
+                    writeln!(f,"\t{} : {},",String::from_utf8_lossy(k),v).expect("Error Displaying Bencode {self:?}");
                 }
-                write!(f,"}}\n")
+                writeln!(f,"}}")
             }
             Bencode::Int(i) => {write!(f,"Int({})",i)}
             Bencode::List(l) => {
-                write!(f,"List[\n").expect("Error Displaying Bencode {self:?}");
+                writeln!(f,"List[").expect("Error Displaying Bencode {self:?}");
                 for v in l {
-                    write!(f,"\t{},\n",v).expect("Error Displaying Bencode {self:?}");
+                    writeln!(f,"\t{},",v).expect("Error Displaying Bencode {self:?}");
                 }
-                write!(f,"]\n")
+                writeln!(f,"]")
         }
             Bencode::Message(s) => {write!(f,"Message({})",String::from_utf8_lossy(s))}
             Bencode::Stop => {write!(f,"Stop")}
