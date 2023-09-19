@@ -1,7 +1,7 @@
 use crate::decode::{decode_dict, decode_int, decode_list, decode_message};
 use core::panic;
 use std::collections::BTreeMap;
-use std::fmt::{Display, self};
+use std::fmt::{self};
 use std::iter::Peekable;
 use std::slice::Iter;
 #[derive(PartialEq)]

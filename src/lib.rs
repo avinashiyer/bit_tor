@@ -1,35 +1,40 @@
 #![allow(dead_code)]
-use std::collections::HashMap;
 
-use bencode::Bencode;
 
 pub mod bencode;
 pub mod decode;
 
-// pub struct MetaInfo {
-//     announce: Vec<u8>,
-//     announce_list: Option<Vec<Vec<u8>>>,
-//     creation_date: Option<isize>,
-//     comment: String,
-//     created_by: String,
-//     encoding: String,
-//     info: 
-// }
+pub struct MetaInfo {
+    announce: Vec<u8>,
+    announce_list: Option<Vec<Vec<u8>>>,
+    creation_date: Option<isize>,
+    comment: Option<Vec<u8>>,
+    created_by: Option<Vec<u8>>,
+    encoding: Option<Vec<u8>>,
+    info: FileDict,
+}
 
-// pub struct FileDict {
-//     piece_length:isize,
-//     pieces:Vec<u8>,
-    
-// }
+pub struct FileDict {
+    piece_length:isize,
+    pieces:Vec<u8>,
+    single_file:bool,
+    multi:Option<MultiFileInfo>,
+    single:Option<SingleFileInfo>,
 
-// struct FileInfo{
-//     length:isize,
-//     path:Option<Bencode>,
-// }
+}
 
-// pub struct MultiFileInfo {
-    
+struct FileInfo{
+    length:isize,
+    path:Option<Vec<u8>>,
+}
 
-//     name: Vec<u8>,
-//     files:Vec<
-// }
+pub struct MultiFileInfo {
+    name: Vec<u8>,
+    files:Vec<FileInfo>
+
+}
+
+pub struct  SingleFileInfo {
+    name: Vec<u8>,
+    length: isize,
+}
