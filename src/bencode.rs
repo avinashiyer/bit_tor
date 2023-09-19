@@ -18,12 +18,13 @@ impl Bencode {
     pub fn decode_all(src: &[u8]) -> Vec<Bencode> {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
-        while it.peek().is_some() {
-            match Self::decode_single(&mut it) {
-                Bencode::Stop => break,
-                x => vals.push(x),
-            }
-        }
+        println!("LENGTH {}",it.count());
+        // while it.peek().is_some() {
+        //     match Self::decode_single(&mut it) {
+        //         Bencode::Stop => break,
+        //         x => vals.push(x),
+        //     }
+        // }
         vals
     }
     pub fn decode_single(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {

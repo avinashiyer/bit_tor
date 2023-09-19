@@ -38,3 +38,29 @@ pub struct  SingleFileInfo {
     name: Vec<u8>,
     length: isize,
 }
+
+
+pub struct GetRequest{
+    info_hash : Vec<u8>,
+    peer_id: Vec<u8>,
+    port:String,
+    uploaded:String,
+    downloaded:String,
+    left: String,
+    compact:u8,
+    event:Option<String>,
+    ip: Option<String>,
+    numwant: Option<usize>,
+    key: Option<Vec<u8>>,
+    trackerid: Option<Vec<u8>>,
+}
+
+pub struct TrackerResponse {
+    warning_reason:Option<String>,
+    interval:usize,
+    min_interval:Option<usize>,
+    tracker_id:Option<Vec<u8>>,
+    complete:isize,
+    incomplete:isize,
+    
+}

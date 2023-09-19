@@ -48,6 +48,7 @@ pub fn decode_int(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
             panic!("Negative 0 found in decode_int")
         }
     }
+    println!("INTEGER NUM: {acc}");
     Bencode::Int(acc)
 }
 
@@ -66,7 +67,7 @@ pub fn decode_message(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
         .take_while(|c| **c != b':')
         .map(|c| *c - b'0')
         .fold(0usize, flatten_number_step);
-
+    println!("MESSAGE NUM: {num}");
     // Take num chars from iter
     let s: Vec<u8> = byte_string.take(num).copied().collect();
     if s.len() != num {
@@ -102,7 +103,9 @@ pub fn decode_dict(
     mut parent: BTreeMap<Vec<u8>, Bencode>,
 ) -> Bencode {
     let mut key_val_pairs = Vec::<(Vec<u8>, Bencode)>::new();
+    let mut seen = Vec::<u8>::new();
     while let Some(ch) = byte_string.peek() {
+        seen.push(**ch);
         match ch {
             b'e' => {
                 byte_string.next();
@@ -115,10 +118,11 @@ pub fn decode_dict(
                 return Bencode::Dict(parent)
             }
             c if !c.is_ascii_digit() => {
+                let rest_of_iter:Vec<u8> = byte_string.map(|c|*c).collect();
+
                 panic!(
-                    "Ill formatted key within dictionary. \nIter Dump: {:?}",
-                    byte_string.collect::<Vec<_>>()
-                )
+                    "Ill formatted key within dictionary. \nIter Dump: {}",
+                    helper(rest_of_iter))
             }
             _ => {}
         }
@@ -133,6 +137,19 @@ pub fn decode_dict(
     }
     Bencode::Stop
 }
+
+
+pub fn helper(v:Vec<u8>) -> String{
+    let mut r:Vec<String> = Vec::new();
+    for c in v {
+        match c {
+            0x20..=0x7E => {r.push(String::from_utf8(vec![c]).unwrap())}
+            x => {r.push(format!("/{x:X}"))}
+        }
+    }
+    r.iter().map(|c| c.chars()).flatten().collect()
+}
+
 
 fn check_keys_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>) {
     if key_val_pairs.len() > 2 {
