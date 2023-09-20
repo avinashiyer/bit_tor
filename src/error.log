@@ -1,0 +1,14 @@
+   Compiling bit_tor v0.1.0 (/home/avi/rust_prac/bit_tor)
+warning: unreachable statement
+  --> src/main.rs:31:5
+   |
+30 |     return Ok(());    
+   |     ------------- any code following this expression is unreachable
+31 |     let url = Url::parse(get_tracker_url(&torrent_dict).as_str()).expect("Parse_error for tracker url");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unreachable statement
+   |
+   = note: `#[warn(unreachable_code)]` on by default
+
+warning: `bit_tor` (bin "bit_tor") generated 1 warning
+    Finished dev [unoptimized + debuginfo] target(s) in 0.22s
+     Running `/home/avi/rust_prac/bit_tor/target/debug/bit_tor`

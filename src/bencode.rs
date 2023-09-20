@@ -18,15 +18,15 @@ impl Bencode {
     pub fn decode_all(src: &[u8]) -> Vec<Bencode> {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
-        println!("LENGTH {}",it.count());
-        // while it.peek().is_some() {
-        //     match Self::decode_single(&mut it) {
-        //         Bencode::Stop => break,
-        //         x => vals.push(x),
-        //     }
-        // }
+        while it.peek().is_some() {
+            match Self::decode_single(&mut it) {
+                Bencode::Stop => break,
+                x => vals.push(x),
+            }
+        }
         vals
     }
+
     pub fn decode_single(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
         let mut val = Bencode::Stop;
         if let Some(ch) = byte_string.peek() {
@@ -53,10 +53,13 @@ impl Bencode {
         val
     }
 
+}
+
+impl Bencode {
     pub fn encode_val(&self) -> Vec<u8> {
         match self {
             Bencode::Int(i) => format!("i{i}e").as_bytes().to_vec(),
-            Bencode::Message(s) => encode_message(s),
+            Bencode::Message(s) => Self::encode_message(s),
             Bencode::List(l) => Self::encode_list(l),
             Bencode::Dict(d) => Self::encode_dict(d),
             Bencode::Stop => panic!("Stop val passed to encode_val."),
@@ -86,14 +89,58 @@ impl Bencode {
         res.push(b'e');
         res
     }
+
+    fn encode_message(s: &Vec<u8>) -> Vec<u8> {
+        let mut s_vec = s.len().to_string().as_bytes().to_vec();
+        s_vec.push(b':');
+        s_vec.append(&mut s.clone());
+        s_vec
+    }
 }
 
-fn encode_message(s: &Vec<u8>) -> Vec<u8> {
-    let mut s_vec = s.len().to_string().as_bytes().to_vec();
-    s_vec.push(b':');
-    s_vec.append(&mut s.clone());
-    s_vec
+
+impl Bencode {
+    pub fn unwrap_message(&self) -> Vec<u8> {
+        if let Bencode::Message(s) = self {
+            return s.to_vec();
+        }
+        panic!("Called unwrap_message on non message bencode");
+    }
+
+    pub fn unwrap_dict(&self) -> &BTreeMap<Vec<u8>,Bencode> {
+        if let Bencode::Dict(d) = self {
+            return d;
+        }
+        panic!("Called unwrap_dict on non dict bencode");
+    }
+
+    pub fn unwrap_list(&self) -> Vec<Bencode> {
+        if let Bencode::List(l) = self {
+            return l.to_vec();
+        }
+        panic!("Called unwrap_list on non list bencode");
+    }
+
+    pub fn unwrap_int(&self) -> isize {
+        if let Bencode::Int(i) = *self {
+            return i;
+        }
+        panic!("Called unwrap_int on non int bencode");
+    }
 }
+
+impl Clone for Bencode {
+    fn clone(&self) -> Self {
+        match self {
+            Bencode::Dict(d) => Bencode::Dict(d.clone()),
+            Bencode::List(l) => Bencode::List(l.clone()),
+            Bencode::Int(i) => Bencode::Int(*i),
+            Bencode::Message(v) => Bencode::Message(v.clone()),
+            Bencode::Stop => Bencode::Stop
+        }
+    }
+}
+
 
 impl fmt::Debug for Bencode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

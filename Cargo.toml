@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 url = "2.4.1"
-bendy = "0.3.3"
+sha1_smol = {version = "1.0.0" , features = ["std"]}

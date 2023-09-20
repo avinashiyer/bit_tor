@@ -48,7 +48,6 @@ pub fn decode_int(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
             panic!("Negative 0 found in decode_int")
         }
     }
-    println!("INTEGER NUM: {acc}");
     Bencode::Int(acc)
 }
 
@@ -67,8 +66,7 @@ pub fn decode_message(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
         .take_while(|c| **c != b':')
         .map(|c| *c - b'0')
         .fold(0usize, flatten_number_step);
-    println!("MESSAGE NUM: {num}");
-    // Take num chars from iter
+    // Take {num} chars from iter
     let s: Vec<u8> = byte_string.take(num).copied().collect();
     if s.len() != num {
         panic!(
