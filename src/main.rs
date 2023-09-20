@@ -19,11 +19,12 @@ fn main() -> std::io::Result<()> {
     let _bytes_read = file.read_to_end(&mut buf);
     let meta_info =
         MetaInfo::construct_from_dict_v1(Bencode::decode_single(&mut buf.iter().peekable()));
-
+    let url = meta_info.announce;
+    
     Ok(())
 }
 
-fn get_tracker_url(src: &BTreeMap<Vec<u8>, Bencode>) -> String {
+fn _get_tracker_url(src: &BTreeMap<Vec<u8>, Bencode>) -> String {
     if let Some(url_bencode) = src.get("announce".as_bytes()) {
         if let Bencode::Message(url) = url_bencode {
             return String::from_utf8(url.clone()).expect("Invalid Url in announce field");
