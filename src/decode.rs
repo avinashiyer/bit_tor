@@ -101,9 +101,7 @@ pub fn decode_dict(
     mut parent: BTreeMap<Vec<u8>, Bencode>,
 ) -> Bencode {
     let mut key_val_pairs = Vec::<(Vec<u8>, Bencode)>::new();
-    let mut seen = Vec::<u8>::new();
     while let Some(ch) = byte_string.peek() {
-        seen.push(**ch);
         match ch {
             b'e' => {
                 byte_string.next();
@@ -116,11 +114,11 @@ pub fn decode_dict(
                 return Bencode::Dict(parent)
             }
             c if !c.is_ascii_digit() => {
-                let rest_of_iter:Vec<u8> = byte_string.map(|c|*c).collect();
+                let rest_of_iter:Vec<u8> = byte_string.copied().collect();
 
                 panic!(
                     "Ill formatted key within dictionary. \nIter Dump: {}",
-                    helper(rest_of_iter))
+                    panic_helper(rest_of_iter))
             }
             _ => {}
         }
@@ -137,7 +135,21 @@ pub fn decode_dict(
 }
 
 
-pub fn helper(v:Vec<u8>) -> String{
+
+fn check_keys_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>) {
+    if key_val_pairs.len() > 2 {
+        let key_ordering = key_val_pairs[0].0.cmp(&key_val_pairs[1].0);
+        let is_sorted = (0..key_val_pairs.len() - 1)
+        .all(|i| check_sorted(key_val_pairs, i, key_ordering));
+    if !is_sorted {panic!("Unsorted keys in dictionary")}
+}}
+
+// https://rust-lang.github.io/rfcs/2351-is-sorted.html
+fn check_sorted(key_val_pairs: &[(Vec<u8>, Bencode)], i: usize, key_ordering: Ordering) -> bool {
+    key_val_pairs[i].0.cmp(&key_val_pairs[i + 1].0) == key_ordering
+}
+
+pub fn panic_helper(v:Vec<u8>) -> String{
     let mut r:Vec<String> = Vec::new();
     for c in v {
         match c {
@@ -145,23 +157,9 @@ pub fn helper(v:Vec<u8>) -> String{
             x => {r.push(format!("/{x:X}"))}
         }
     }
-    r.iter().map(|c| c.chars()).flatten().collect()
+    r.iter().flat_map(|c| c.chars()).collect()
 }
 
-
-fn check_keys_sorted(key_val_pairs: &Vec<(Vec<u8>, Bencode)>) {
-    if key_val_pairs.len() > 2 {
-        let key_ordering = key_val_pairs[0].0.cmp(&key_val_pairs[1].0);
-        let is_sorted = (0..key_val_pairs.len() - 1)
-            .all(|i| check_sorted(key_val_pairs, i, key_ordering));
-        if !is_sorted {panic!("Unsorted keys in dictionary")}
-    }
-}
-
-// https://rust-lang.github.io/rfcs/2351-is-sorted.html
-fn check_sorted(key_val_pairs: &[(Vec<u8>, Bencode)], i: usize, key_ordering: Ordering) -> bool {
-    key_val_pairs[i].0.cmp(&key_val_pairs[i + 1].0) == key_ordering
-}
 
 fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &[u8]) -> Bencode {
     let val = match byte_string.peek() {

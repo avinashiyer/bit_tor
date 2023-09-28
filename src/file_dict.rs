@@ -33,24 +33,23 @@ impl FileDict {
         let mut file_length: Option<isize> = None;
         let file_name: ByteString;
         let mut file_list: Option<Vec<FileInfo>> = None;
-        let single_file: bool;
-        match FileOrDir::from_dict(info_dict) {
+        let single_file = match FileOrDir::from_dict(info_dict) {
             FileOrDir::Single(SingleFileInfo { name, length }) => {
                 file_length = Some(length);
                 file_name = name;
-                single_file = true
+                true
             }
             FileOrDir::Multi(MultiFileInfo { dir_name, files }) => {
                 file_list = Some(files);
                 file_name = dir_name;
-                single_file = false
+                false
             }
-        }
+        };
         FileDict {
             piece_length: piece_len,
             pieces: piece_hashes,
-            single_file: single_file,
-            file_length: file_length,
+            single_file,
+            file_length,
             name: file_name,
             files: file_list,
         }
@@ -108,7 +107,7 @@ impl FileOrDir {
                     .expect("No length key")
                     .unwrap_int(),
             };
-            return FileOrDir::Single(s_file_info);
+            FileOrDir::Single(s_file_info)
         }
     }
 }
