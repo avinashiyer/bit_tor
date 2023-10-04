@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::BTreeMap;
-use std::io::{Write, ErrorKind};
+use std::io::{BufRead, BufReader, Write, Read};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 
 use percent_encoding::{percent_encode, AsciiSet, NON_ALPHANUMERIC};
@@ -54,7 +54,7 @@ impl MetaInfo {
         }
     }
 
-    pub fn tracker_get(meta_info: MetaInfo, peer_id: String) -> Vec<u8> {
+    pub fn tracker_get(meta_info: &MetaInfo, peer_id: String) -> Vec<u8> {
         let announce_url_utf8 = std::str::from_utf8(&meta_info.announce)
             .expect("Error converting announce url to utf-8 encoding");
         // let bytes_left = meta.info.file_length.unwrap().to_string();
@@ -68,7 +68,7 @@ impl MetaInfo {
             escaped_hash = meta_info.escaped_hash
         );
         let response: Vec<u8> = match reqwest::blocking::get(res) {
-            Ok(rep) => rep.bytes().unwrap().iter().map(|x| *x).collect(),
+            Ok(rep) => rep.bytes().unwrap().iter().copied().collect(),
             Err(e) => {
                 panic!("{e}")
             }
@@ -83,6 +83,7 @@ impl MetaInfo {
     fn get_int(d: &BTreeMap<ByteString, Bencode>, key: &[u8]) -> Option<isize> {
         d.get(key).map(|b| b.unwrap_int())
     }
+
     fn get_url_list(d: &BTreeMap<ByteString, Bencode>) -> Option<Vec<ByteString>> {
         d.get("url-list".as_bytes()).map(|b| {
             b.unwrap_list()
@@ -101,6 +102,7 @@ pub struct Peer {
     pub peer_interested: u8,
     pub socket: SocketAddrV4,
     pub handle: TcpStream,
+    pub buffer: Vec<u8>,
 }
 
 impl Peer {
@@ -110,7 +112,7 @@ impl Peer {
             std::time::Duration::new(5, 0),
         ) {
             Ok(h) => h,
-            Err(e) => return None,
+            Err(_) => return None,
         };
         Some(Peer {
             am_choking: 1,
@@ -119,6 +121,7 @@ impl Peer {
             peer_interested: 0,
             socket,
             handle,
+            buffer: Vec::<u8>::new(),
         })
     }
 
@@ -159,14 +162,20 @@ impl Peer {
         }
         parsed_peers
             .into_iter()
-            .map(|skt| Peer::new_peer(skt))
-            .flatten()
+            .filter_map(Peer::new_peer)
             .collect()
     }
 
-    pub fn send_to_peer(&mut self, message: &[u8]) {
-        if let Err(e) = self.handle.write_all(message) {
-            panic!("{e} \n\n occured when trying to write to a peer");
-        } 
+    pub fn write_to_peer(&mut self, message: &[u8]) -> std::io::Result<()>{
+        self.handle.write_all(message)?;
+        self.handle.flush()
+    }
+
+    pub fn read_peer_message(&mut self) -> std::io::Result<()> {
+        let mut length_prefix = [0u8;4];
+        self.handle.read_exact(&mut length_prefix)?;
+        let length = u32::from_be_bytes(length_prefix);
+
+        Ok(())
     }
 }
