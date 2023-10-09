@@ -63,7 +63,7 @@ impl MetaInfo {
             info_hash={escaped_hash}&\
             event=started&\
             peer_id={peer_id}\
-            &compact=\
+            &compact=1\
             &numwant=5",
             escaped_hash = meta_info.escaped_hash
         );
@@ -127,7 +127,7 @@ impl Peer {
 
     pub fn get_peers(response: Vec<u8>) -> Vec<Peer> {
         let mut response_iter = response.iter().peekable();
-        let bencoded_response = Bencode::decode_single(&mut response_iter);
+        let bencoded_response = Bencode::decode_dispatch(&mut response_iter);
         let tracker_response_dict = bencoded_response.unwrap_dict();
         if let Some(x) = tracker_response_dict.get("failure reason".as_bytes()) {
             panic!(
@@ -175,7 +175,13 @@ impl Peer {
         let mut length_prefix = [0u8;4];
         self.handle.read_exact(&mut length_prefix)?;
         let length = u32::from_be_bytes(length_prefix);
-
+        if length == 0 {
+            return Ok(());
+        }
         Ok(())
     }
 }
+
+pub enum Message{
+
+} 

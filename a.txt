@@ -1,0 +1,48 @@
+warning: unused imports: `BufRead`, `BufReader`
+ --> src/lib.rs:4:15
+  |
+4 | use std::io::{BufRead, BufReader, Write, Read};
+  |               ^^^^^^^  ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `bit_tor` (lib) generated 1 warning (run `cargo fix --lib -p bit_tor` to apply 1 suggestion)
+warning: unused import: `reqwest`
+ --> src/main.rs:5:5
+  |
+5 | use reqwest;
+  |     ^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `std::io::Error`
+  --> src/main.rs:10:5
+   |
+10 | use std::io::Error;
+   |     ^^^^^^^^^^^^^^
+
+warning: function `check_handshake_response` is never used
+  --> src/main.rs:85:4
+   |
+85 | fn check_handshake_response(meta: &MetaInfo, response: &mut impl Iterator<Item = u8>) -> bool {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `bit_tor` (bin "bit_tor") generated 3 warnings (run `cargo fix --bin "bit_tor"` to apply 2 suggestions)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.03s
+     Running `target/debug/bit_tor src/debian-amd64.torrent`
+[src/main.rs:32] peers.len() = 2
+[src/main.rs:33] "After Writes" = "After Writes"
+[src/main.rs:36] "BEFORE READ" = "BEFORE READ"
+=============================
+
+[]
+
+=============================
+[src/main.rs:36] "BEFORE READ" = "BEFORE READ"
+=============================
+
+[]
+
+=============================

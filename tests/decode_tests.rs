@@ -27,14 +27,14 @@ mod decode_tests {
     #[should_panic]
     fn bad_terminal_int_decode() {
         let s = String::from("i-45").as_bytes().to_vec();
-        Bencode::decode_single(&mut s.iter().peekable());
+        Bencode::decode_dispatch(&mut s.iter().peekable());
     }
 
     #[test]
     fn neg_int_decode() {
         let num = -32;
         let s = format!("i{num}e").as_bytes().to_vec();
-        match Bencode::decode_single(&mut s.iter().peekable()) {
+        match Bencode::decode_dispatch(&mut s.iter().peekable()) {
             Bencode::Int(n) => assert_eq!(n, num),
             _ => {
                 assert!(false)
@@ -46,41 +46,41 @@ mod decode_tests {
     #[should_panic]
     fn leading_zeros() {
         let mut s = "i03e".as_bytes().iter().peekable();
-        Bencode::decode_single( &mut s);
+        Bencode::decode_dispatch( &mut s);
     }
 
     #[test]
     #[should_panic]
     fn neg_zero() {
         let mut s = "i-0e".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 
     #[test]
     #[should_panic]
     fn leading_zeroes_zeroes() {
         let mut s = "i000e".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 
     #[test]
     #[should_panic]
     fn leading_zeroes_zero() {
         let mut s = "i00e".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 
     #[test]
     #[should_panic]
     fn leading_zeroes_neg_zero() {
         let mut s = "i-00e".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 
     #[test]
     fn test_message_decode() {
         let s = String::from("12:Hello World!").as_bytes().to_vec();
-        let res = Bencode::decode_single(&mut s.iter().peekable());
+        let res = Bencode::decode_dispatch(&mut s.iter().peekable());
         match res {
             Bencode::Message(x) => {
                 assert_eq!(s[3..], x)
@@ -95,13 +95,13 @@ mod decode_tests {
     #[should_panic]
     fn test_message_short() {
         let s = "12:hello ".as_bytes().iter();
-        Bencode::decode_single(&mut s.peekable());
+        Bencode::decode_dispatch(&mut s.peekable());
     }
 
     #[test]
     fn test_message_with_bencoded_vals() {
         let s = "35:abcd12:hello_world!li22ed3:eari45ee".as_bytes().to_vec();
-        match Bencode::decode_single(&mut s.iter().peekable()) {
+        match Bencode::decode_dispatch(&mut s.iter().peekable()) {
             Bencode::Message(val) => assert_eq!(s[3..], val),
             _ => {
                 assert!(false)
@@ -129,7 +129,7 @@ mod decode_tests {
     #[test]
     fn test_decode_list_pos() {
         let s = "li3e5:hi55ei8e0:e".as_bytes().to_vec();
-        let v = Bencode::decode_single(&mut s.iter().peekable());
+        let v = Bencode::decode_dispatch(&mut s.iter().peekable());
         let vec = match &v {
             Bencode::List(val) => val,
             _ => panic!("{:?}", v),
@@ -152,7 +152,7 @@ mod decode_tests {
     #[should_panic]
     fn test_decode_list_no_end() {
         let s = "li44ei4e4:abcd".as_bytes().to_vec();
-        Bencode::decode_single(&mut s.iter().peekable());
+        Bencode::decode_dispatch(&mut s.iter().peekable());
     }
 
     #[test]
@@ -160,7 +160,7 @@ mod decode_tests {
         let s = "li132e2:2:0:li44e0:l4:spamei22ei23ee1:fe"
             .as_bytes()
             .to_vec();
-        let real = Bencode::decode_single(&mut s.iter().peekable());
+        let real = Bencode::decode_dispatch(&mut s.iter().peekable());
         let exp = Bencode::List(vec![
             Bencode::Int(132),
             Bencode::Message("2:".as_bytes().to_vec()),
@@ -196,7 +196,7 @@ mod decode_tests {
             ("cow".as_bytes().to_vec(), Bencode::Message("moo".as_bytes().to_vec())),
             ("spam".as_bytes().to_vec(), Bencode::Message("eggs".as_bytes().to_vec())),
         ]);
-        let x = Bencode::decode_single(&mut s);
+        let x = Bencode::decode_dispatch(&mut s);
         if let Bencode::Dict(map) = x {
             assert_eq!(map, vals);
         } else {
@@ -217,7 +217,7 @@ mod decode_tests {
                 Bencode::Dict(BTreeMap::<Vec<u8>, Bencode>::new()),
             ),
         ]));
-        assert_eq!(Bencode::decode_single(&mut s), exp);
+        assert_eq!(Bencode::decode_dispatch(&mut s), exp);
     }
 
     #[test]
@@ -230,26 +230,26 @@ mod decode_tests {
                 Bencode::Dict(BTreeMap::<Vec<u8>, Bencode>::new()),
             )])),
         )]));
-        assert_eq!(Bencode::decode_single(&mut s),exp)
+        assert_eq!(Bencode::decode_dispatch(&mut s),exp)
     }
 
     #[test]
     #[should_panic]
     fn test_unsorted_dict_keys_short() {
         let mut s = "d1:a2:bb1:z2:cc1:b2:gge".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 
     #[test]
     fn test_unsorted_dict_keys_nested() {
         let mut s = "d1:xi22e1:sd1:ti66ee1:ai1ee".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 
     #[test]
     #[should_panic]
     fn test_duplicate_keys() {
         let mut s = "d2:avi22e2:av4:bveee".as_bytes().iter().peekable();
-        Bencode::decode_single(&mut s);
+        Bencode::decode_dispatch(&mut s);
     }
 }

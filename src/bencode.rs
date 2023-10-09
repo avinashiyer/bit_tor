@@ -19,7 +19,7 @@ impl Bencode {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
         while it.peek().is_some() {
-            match Self::decode_single(&mut it) {
+            match Self::decode_dispatch(&mut it) {
                 Bencode::Stop => break,
                 x => vals.push(x),
             }
@@ -27,7 +27,7 @@ impl Bencode {
         vals
     }
 
-    pub fn decode_single(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
+    pub fn decode_dispatch(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
         let mut val = Bencode::Stop;
         if let Some(ch) = byte_string.peek() {
             val = match **ch {
@@ -45,14 +45,13 @@ impl Bencode {
                     byte_string.next();
                     decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())
                 }
-                _ => {
-                    panic!("Strange value in decode dispatch matched: {ch}")
+                a => {
+                    panic!("Strange value in decode_dispatch() found: {a}:\n\n{:#X?}",byte_string.collect::<Vec<_>>())
                 }
             };
         }
         val
     }
-
 }
 
 impl Bencode {

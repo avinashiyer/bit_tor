@@ -90,7 +90,7 @@ pub fn decode_list(byte_string: &mut Peekable<Iter<'_, u8>>, mut parent: Vec<Ben
                 byte_string.next();
                 return Bencode::List(parent);
             }
-            _ => parent.push(Bencode::decode_single(byte_string)),
+            _ => parent.push(Bencode::decode_dispatch(byte_string)),
         }
     }
     panic!("No terminal???")
@@ -174,7 +174,7 @@ fn get_value(byte_string: &mut Peekable<Iter<'_, u8>>, key: &[u8]) -> Bencode {
                     String::from_utf8_lossy(key)
                 )
             }
-            _ => Bencode::decode_single(byte_string),
+            _ => Bencode::decode_dispatch(byte_string),
         },
         None => {
             panic!(
