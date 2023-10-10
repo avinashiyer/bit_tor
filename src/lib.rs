@@ -13,8 +13,6 @@ pub mod bencode;
 pub mod decode;
 pub mod file_dict;
 
-type ByteString = Vec<u8>;
-
 const ESCAPED_CHARACTERS: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'.')
     .remove(b'-')
@@ -22,20 +20,20 @@ const ESCAPED_CHARACTERS: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'~');
 
 pub struct MetaInfo {
-    pub announce: ByteString,
-    pub announce_list: Option<Vec<ByteString>>,
+    pub announce: Vec<u8>,
+    pub announce_list: Option<Vec<Vec<u8>>>,
     pub creation_date: Option<isize>,
-    pub comment: Option<ByteString>,
-    pub created_by: Option<ByteString>,
-    pub encoding: Option<ByteString>,
-    pub url_list: Option<Vec<ByteString>>,
+    pub comment: Option<Vec<u8>>,
+    pub created_by: Option<Vec<u8>>,
+    pub encoding: Option<Vec<u8>>,
+    pub url_list: Option<Vec<Vec<u8>>>,
     pub info: FileDict,
     pub info_hash: [u8; 20],
     pub escaped_hash: String,
 }
 impl MetaInfo {
     pub fn construct_from_dict_v1(
-        root_dict: BTreeMap<ByteString, Bencode>,
+        root_dict: BTreeMap<Vec<u8>, Bencode>,
         hashed_info: [u8; 20],
     ) -> MetaInfo {
         let escaped_hash = percent_encode(&hashed_info, ESCAPED_CHARACTERS).to_string();
@@ -76,15 +74,15 @@ impl MetaInfo {
         response
     }
 
-    fn get_message(d: &BTreeMap<ByteString, Bencode>, key: &[u8]) -> Option<ByteString> {
+    fn get_message(d: &BTreeMap<Vec<u8>, Bencode>, key: &[u8]) -> Option<Vec<u8>> {
         d.get(key).map(|b| b.unwrap_message())
     }
 
-    fn get_int(d: &BTreeMap<ByteString, Bencode>, key: &[u8]) -> Option<isize> {
+    fn get_int(d: &BTreeMap<Vec<u8>, Bencode>, key: &[u8]) -> Option<isize> {
         d.get(key).map(|b| b.unwrap_int())
     }
 
-    fn get_url_list(d: &BTreeMap<ByteString, Bencode>) -> Option<Vec<ByteString>> {
+    fn get_url_list(d: &BTreeMap<Vec<u8>, Bencode>) -> Option<Vec<Vec<u8>>> {
         d.get("url-list".as_bytes()).map(|b| {
             b.unwrap_list()
                 .iter()

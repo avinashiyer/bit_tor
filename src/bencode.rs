@@ -15,42 +15,45 @@ pub enum Bencode {
 
 impl Bencode {
     // Convenience method to decode a whole string and return all bencode values in a vec
-    pub fn decode_all(src: &[u8]) -> Vec<Bencode> {
+    pub fn decode_all(src: &[u8]) -> Result<Vec<Bencode>,std::io::Error> {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
         while it.peek().is_some() {
             match Self::decode_dispatch(&mut it) {
-                Bencode::Stop => break,
-                x => vals.push(x),
+                Ok(Bencode::Stop) => break,
+                Ok(x) => vals.push(x),
+                Err(e) => return Err(e),
             }
         }
-        vals
+        Ok(vals)
     }
 
-    pub fn decode_dispatch(byte_string: &mut Peekable<Iter<'_, u8>>) -> Bencode {
+    pub fn decode_dispatch(byte_string: &mut Peekable<Iter<'_, u8>>) -> Result<Bencode,std::io::Error> {
         let mut val = Bencode::Stop;
         if let Some(ch) = byte_string.peek() {
             val = match **ch {
                 b'e' => Bencode::Stop,
                 b'i' => {
                     byte_string.next();
-                    decode_int(byte_string)
+                    decode_int(byte_string)?
                 }
-                b'0'..=b'9' => decode_message(byte_string),
+                b'0'..=b'9' => decode_message(byte_string)?,
                 b'l' => {
                     byte_string.next();
-                    decode_list(byte_string, Vec::<Bencode>::new())
+                    decode_list(byte_string, Vec::<Bencode>::new())?
                 }
                 b'd' => {
                     byte_string.next();
-                    decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())
+                    decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())?
                 }
                 a => {
-                    panic!("Strange value in decode_dispatch() found: {a}:\n\n{:#X?}",byte_string.collect::<Vec<_>>())
+                    let s = format!("Strange value in decode_dispatch() found: {a}:\n\nIterator Dump: {:#X?}",byte_string.collect::<Vec<_>>());
+                    let error = std::io::Error::new(std::io::ErrorKind::InvalidData, s);
+                    return Err(error);
                 }
             };
         }
-        val
+        Ok(val)
     }
 }
 
