@@ -7,27 +7,26 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io::prelude::*;
-use std::io::Error;
+use std::error::Error;
 
 // use std::thread;
 // use std::time::Duration;
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(),Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     let file = fs::File::open(
         args.get(1)
             .expect("No file supplied in command line invocation"),
-    )
-    .unwrap();
+    )?;
     let peer_id = make_peer_id();
-    let (root_dict, info_bencoded) = read_torrent(file);
+    let (root_dict, info_bencoded) = read_torrent(file)?;
     let hashed_info = sha1_smol::Sha1::from(info_bencoded).digest().bytes();
     let meta_info = MetaInfo::construct_from_dict_v1(root_dict, hashed_info);
-    let response = MetaInfo::tracker_get(&meta_info, peer_id);
-    let mut peers = Peer::get_peers(response);
+    let response = MetaInfo::tracker_get(&meta_info, peer_id)?;
+    let mut peers = Peer::get_peers(response)?;
     let handshake = serialize_handshake(&meta_info, make_peer_id());
     for peer in peers.iter_mut() {
-        peer.write_to_peer(&handshake)?;
+        peer.write_to_peer(&handshake.as_slice())?;
     }
     dbg!(peers.len());
     dbg!("After Writes");
@@ -41,10 +40,10 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn read_torrent(mut file: fs::File) -> (BTreeMap<Vec<u8>, Bencode>, Vec<u8>) {
+fn read_torrent(mut file: fs::File) -> Result<(BTreeMap<Vec<u8>, Bencode>, Vec<u8>), std::io::Error>  {
     let mut buf = Vec::with_capacity(1_000_000);
     let _bytes_read = file.read_to_end(&mut buf);
-    let root_dict = match Bencode::decode_dispatch(&mut buf.iter().peekable()) {
+    let root_dict = match Bencode::decode_dispatch(&mut buf.iter().peekable())? {
         Bencode::Dict(d) => d,
         _ => panic!("Top level bencoded value is not a dictionary"),
     };
@@ -52,7 +51,7 @@ fn read_torrent(mut file: fs::File) -> (BTreeMap<Vec<u8>, Bencode>, Vec<u8>) {
         .get("info".as_bytes())
         .expect("No info value")
         .encode_val();
-    (root_dict, info_bencoded)
+    Ok((root_dict, info_bencoded))
 }
 
 fn make_peer_id() -> String {

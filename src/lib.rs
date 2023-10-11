@@ -52,7 +52,7 @@ impl MetaInfo {
         }
     }
 
-    pub fn tracker_get(meta_info: &MetaInfo, peer_id: String) -> Vec<u8> {
+    pub fn tracker_get(meta_info: &MetaInfo, peer_id: String) -> Result<Vec<u8>,reqwest::Error> {
         let announce_url_utf8 = std::str::from_utf8(&meta_info.announce)
             .expect("Error converting announce url to utf-8 encoding");
         // let bytes_left = meta.info.file_length.unwrap().to_string();
@@ -65,13 +65,7 @@ impl MetaInfo {
             &numwant=5",
             escaped_hash = meta_info.escaped_hash
         );
-        let response: Vec<u8> = match reqwest::blocking::get(res) {
-            Ok(rep) => rep.bytes().unwrap().iter().copied().collect(),
-            Err(e) => {
-                panic!("{e}")
-            }
-        };
-        response
+        Ok(reqwest::blocking::get(res)?.bytes().unwrap().iter().copied().collect())
     }
 
     fn get_message(d: &BTreeMap<Vec<u8>, Bencode>, key: &[u8]) -> Option<Vec<u8>> {
@@ -123,29 +117,29 @@ impl Peer {
         })
     }
 
-    pub fn get_peers(response: Vec<u8>) -> Vec<Peer> {
+    pub fn get_peers(response: Vec<u8>) -> Result<Vec<Peer>,std::io::Error> {
         let mut response_iter = response.iter().peekable();
-        let bencoded_response = Bencode::decode_dispatch(&mut response_iter);
+        let bencoded_response = Bencode::decode_dispatch(&mut response_iter)?;
         let tracker_response_dict = bencoded_response.unwrap_dict();
         if let Some(x) = tracker_response_dict.get("failure reason".as_bytes()) {
-            panic!(
-                "Tracker Request Failed with reason: \n{}",
-                String::from_utf8_lossy(&x.unwrap_message())
-            );
+            return Err(make_bad_data_err(
+                &format!("Tracker Request Failed with reason: \n{}",
+                escape_u8_slice(&x.unwrap_message()))
+            ));
         }
         match tracker_response_dict.get("peers".as_bytes()) {
-            None => panic!("No peers in tracker respone"),
+            None => Err(make_bad_data_err("No peers in tracker respone")),
             Some(Bencode::Dict(_)) => {
-                panic!("Non Compact response from tracker recieved")
+                Err(make_bad_data_err("Non Compact response from tracker recieved"))
             }
             Some(Bencode::Message(m)) => Peer::extract_peers_from_compact_response(m.to_vec()),
-            _ => panic!("Unexpected value in peers"),
+            _ => Err(make_bad_data_err("Peers encoded in non recognized format")),
         }
     }
 
-    pub fn extract_peers_from_compact_response(bytes: Vec<u8>) -> Vec<Peer> {
+    pub fn extract_peers_from_compact_response(bytes: Vec<u8>) -> Result<Vec<Peer>,std::io::Error> {
         if bytes.len() % 6 != 0 {
-            panic!("Comapct peers byte string is not a multiple of 6. Impossible to parse");
+            return Err(make_bad_data_err("Comapct peers byte string is not a multiple of 6. Impossible to parse"));
         }
         let num_addrs = bytes.len() / 6;
         let mut parsed_peers = Vec::<SocketAddrV4>::with_capacity(num_addrs);
@@ -158,10 +152,10 @@ impl Peer {
                 port,
             ));
         }
-        parsed_peers
+        Ok(parsed_peers
             .into_iter()
             .filter_map(Peer::new_peer)
-            .collect()
+            .collect())
     }
 
     pub fn write_to_peer(&mut self, message: &[u8]) -> std::io::Result<()>{
@@ -179,6 +173,21 @@ impl Peer {
         Ok(())
     }
 }
+
+pub fn make_bad_data_err(err_msg: &str) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, err_msg)
+}
+
+
+pub fn escape_u8_slice(src: &[u8]) -> String {
+    String::from_utf8(
+        src.iter()
+            .flat_map(|b| std::ascii::escape_default(*b))
+            .collect::<Vec<u8>>(),
+    )
+    .unwrap()
+}
+
 
 pub enum Message{
 
