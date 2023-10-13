@@ -1,13 +1,16 @@
 use bit_tor::bencode::Bencode;
 use bit_tor::MetaInfo;
 use bit_tor::Peer;
+use bit_tor::escape_u8_slice;
 use core::panic;
+use std::net::TcpStream;
 use reqwest;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io::prelude::*;
 use std::error::Error;
+use std::io::BufReader;
 
 // use std::thread;
 // use std::time::Duration;
@@ -23,7 +26,9 @@ fn main() -> Result<(),Box<dyn Error>> {
     let hashed_info = sha1_smol::Sha1::from(info_bencoded).digest().bytes();
     let meta_info = MetaInfo::construct_from_dict_v1(root_dict, hashed_info);
     let response = MetaInfo::tracker_get(&meta_info, peer_id)?;
+    println!("TRACKER RESPONSE: {}",escape_u8_slice(&response));
     let mut peers = Peer::get_peers(response)?;
+    peers.iter().for_each(|p| println!("Socket: {:?}",p.handle.peer_addr()));
     let handshake = serialize_handshake(&meta_info, make_peer_id());
     for peer in peers.iter_mut() {
         peer.write_to_peer(&handshake.as_slice())?;
@@ -31,16 +36,21 @@ fn main() -> Result<(),Box<dyn Error>> {
     dbg!(peers.len());
     dbg!("After Writes");
     for peer in peers.iter_mut() {
-        let mut buf = Vec::<u8>::with_capacity(100);
-        dbg!("BEFORE READ");
-        peer.handle.read(&mut buf)?;
-        println!("=============================\n\n{:#?}\n\n=============================",buf);
+        
     }
 
     Ok(())
 }
 
-fn read_torrent(mut file: fs::File) -> Result<(BTreeMap<Vec<u8>, Bencode>, Vec<u8>), std::io::Error>  {
+fn read_handshake(peer:&Peer) -> std::io::Result<Vec<u8>>{
+    
+    Ok(Vec::new())
+}
+
+
+
+type DictAndBytes =  (BTreeMap<Vec<u8>, Bencode>, Vec<u8>);
+fn read_torrent(mut file: fs::File) -> Result<(DictAndBytes), std::io::Error>  {
     let mut buf = Vec::with_capacity(1_000_000);
     let _bytes_read = file.read_to_end(&mut buf);
     let root_dict = match Bencode::decode_dispatch(&mut buf.iter().peekable())? {
@@ -74,39 +84,9 @@ fn serialize_handshake(meta: &MetaInfo, peer_id: String) -> Vec<u8> {
     let mut raw_bytes = Vec::<u8>::with_capacity((BASE_HANDSHAKE_LENGTH + pstr_len) as usize);
     raw_bytes.push(pstr_len);
     raw_bytes.extend(pstr);
-    // Reserved Bytes
-    raw_bytes.extend([0u8; 8]);
+    raw_bytes.extend([0u8; 8]); //Reserved Bytes
     raw_bytes.extend(meta.info_hash);
     raw_bytes.extend(peer_id.as_bytes());
     raw_bytes
 }
 
-fn check_handshake_response(meta: &MetaInfo, response: &mut impl Iterator<Item = u8>) -> bool {
-    const NUM_RESERVED_BYTES: usize = 8;
-    const HASH_LENGTH: usize = 20;
-    const PEER_ID_LENGTH: usize = 20;
-    let length: usize = match response.next() {
-        Some(length) => length as usize,
-        None => return false,
-    };
-    let protocol_str: Vec<u8> = response.take(length).collect();
-    if protocol_str.len() != length {
-        return false;
-    }
-    let reserved_bytes: Vec<u8> = response.take(NUM_RESERVED_BYTES).collect();
-    if reserved_bytes.len() != NUM_RESERVED_BYTES {
-        return false;
-    }
-    let info_hash: Vec<u8> = response.take(20).collect();
-    if info_hash.len() != HASH_LENGTH {
-        return false;
-    }
-    let peer_id: Vec<u8> = response.take(20).collect();
-    if peer_id.len() != PEER_ID_LENGTH {
-        return false;
-    }
-    if info_hash != meta.info_hash {
-        return false;
-    }
-    true
-}
