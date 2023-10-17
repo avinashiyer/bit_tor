@@ -1,13 +1,14 @@
 #![allow(dead_code)]
 
 use std::collections::BTreeMap;
-use std::io::{BufReader, BufWriter, Write, Read, BufRead};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 
 use percent_encoding::{percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 use bencode::Bencode;
 use file_dict::FileDict;
+use regex::bytes;
 
 pub mod bencode;
 pub mod decode;
@@ -100,21 +101,21 @@ pub struct Peer {
     pub socket: SocketAddrV4,
     pub buf_reader: BufReader<TcpStream>,
     pub buf_writer: BufWriter<TcpStream>,
-    pub buffer: Vec<u8>,
+    pub read_buffer: Vec<u8>,
 }
 
 impl Peer {
     pub fn new_peer(socket: SocketAddrV4) -> Option<Peer> {
-        let mut read_handle = match TcpStream::connect_timeout(
+        let read_handle = match TcpStream::connect_timeout(
             &std::net::SocketAddr::V4(socket),
             std::time::Duration::new(5, 0),
         ) {
             Ok(h) => h,
             Err(_) => return None,
         };
-        let mut write_handle = match read_handle.try_clone() {
+        let write_handle = match read_handle.try_clone() {
             Ok(h) => h,
-            Err(e) => return None,
+            Err(_) => return None,
         };
         Some(Peer {
             am_choking: 1,
@@ -124,7 +125,7 @@ impl Peer {
             socket,
             buf_reader: BufReader::new(read_handle),
             buf_writer: BufWriter::new(write_handle),
-            buffer: Vec::<u8>::new(),
+            read_buffer: Vec::<u8>::new(),
         })
     }
 
@@ -143,14 +144,12 @@ impl Peer {
             Some(Bencode::Dict(_)) => Err(make_bad_data_err(
                 "Non Compact response from tracker recieved",
             )),
-            Some(Bencode::Message(m)) => Peer::extract_peers_from_compact_response(m.to_vec()),
+            Some(Bencode::Message(m)) => Peer::deserialize_compact_peers(m.to_vec()),
             _ => Err(make_bad_data_err("Peers encoded in non recognized format")),
         }
     }
 
-    pub fn extract_peers_from_compact_response(
-        bytes: Vec<u8>,
-    ) -> Result<Vec<Peer>, std::io::Error> {
+    pub fn deserialize_compact_peers(bytes: Vec<u8>) -> Result<Vec<Peer>, std::io::Error> {
         if bytes.len() % 6 != 0 {
             return Err(make_bad_data_err(
                 "Comapct peers byte string is not a multiple of 6. Impossible to parse",
@@ -179,8 +178,8 @@ impl Peer {
     }
 
     pub fn read_peer_message(&mut self) -> std::io::Result<Vec<u8>> {
-        let mut length_prefix = [0u8; 4];
-        self.buf_reader.read_exact(&mut length_prefix)?;
+        const NUM_LENGTH_BYTES: usize = 4;
+        let length_prefix: [u8; 4] = vec_to_array(Peer::loop_read(&mut self.buf_reader, NUM_LENGTH_BYTES)?);
         let length = u32::from_be_bytes(length_prefix);
         if length == 0 {
             return Ok(Vec::new());
@@ -188,16 +187,25 @@ impl Peer {
         Ok(Peer::loop_read(&mut self.buf_reader, length as usize)?)
     }
 
-    fn loop_read(reader:&mut BufReader<TcpStream>, bytes_to_read: usize) -> Result<Vec<u8>,std::io::Error>{
+    
+    pub fn loop_read(
+        reader: &mut BufReader<TcpStream>,
+        bytes_to_read: usize,
+    ) -> Result<Vec<u8>, std::io::Error> {
         let mut res = Vec::<u8>::new();
         let mut bytes_read = 0;
         loop {
             let buf = reader.fill_buf()?;
-            bytes_read += buf.len();
+            let buf_len = buf.len();
             res.extend(buf);
-            if bytes_to_read <= bytes_read {
+            if bytes_read + buf_len >= bytes_to_read {
+                reader.consume(bytes_to_read - bytes_read);
+                res = res[..bytes_to_read].to_vec();
                 break;
+            } else {
+                reader.consume(buf_len);
             }
+            bytes_read += buf_len;
         }
         Ok(res)
     }
@@ -210,10 +218,16 @@ pub fn make_bad_data_err(err_msg: &str) -> std::io::Error {
 pub fn escape_u8_slice(src: &[u8]) -> String {
     String::from_utf8(
         src.iter()
-            .flat_map(|b| std::ascii::escape_default(*b))
-            .collect::<Vec<u8>>(),
+        .flat_map(|b| std::ascii::escape_default(*b))
+        .collect::<Vec<u8>>(),
     )
     .unwrap()
 }
 
+pub fn vec_to_array<T, const N: usize>(v:Vec<T>) -> [T;N] {
+    v.try_into().unwrap_or_else(|v: Vec<T>| {
+        panic!(
+            "Expected a Vector of length {N}, but got one that was {}",
+            v.len())})
+}
 pub enum Message {}
