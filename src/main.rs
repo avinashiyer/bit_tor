@@ -1,20 +1,10 @@
-use bit_tor::bencode::Bencode;
-use bit_tor::escape_u8_slice;
-use bit_tor::vec_to_array;
-use bit_tor::MetaInfo;
-use bit_tor::Peer;
-use core::panic;
-use reqwest;
-use std::collections::BTreeMap;
-use std::env;
-use std::error::Error;
-use std::fs;
-use std::io::prelude::*;
-use std::io::BufReader;
-use std::net::TcpStream;
+use bit_tor::{bencode::Bencode, escape_u8_slice, vec_to_array, MetaInfo, Peer};
 
-// use std::thread;
-// use std::time::Duration;
+use core::panic;
+use std::collections::BTreeMap;
+use std::error::Error;
+use std::io::prelude::*;
+use std::{env, fs};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
@@ -23,7 +13,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .expect("No file supplied in command line invocation"),
     )?;
     let peer_id = make_peer_id();
-    let (root_dict, info_bencoded) = read_torrent(file)?;
+    let root_dict = read_torrent(file)?;
+    let info_bencoded = bencode_info(&root_dict);
     let hashed_info = sha1_smol::Sha1::from(info_bencoded).digest().bytes();
     let meta_info = MetaInfo::construct_from_dict_v1(root_dict, hashed_info);
     let response = MetaInfo::tracker_get(&meta_info, peer_id)?;
@@ -47,6 +38,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn bencode_info(root_dict: &BTreeMap<Vec<u8>, Bencode>) -> Vec<u8> {
+    let info_bencoded = root_dict
+        .get("info".as_bytes())
+        .expect("No 'info' key in torrent file")
+        .encode_val();
+    info_bencoded
+}
+
 //  Handshake Structure:
 //  [pstr_len][pstr][reserved][info_hash][peer_id]
 //  [1]       [n]   [8]       [20]       [20]
@@ -58,23 +57,21 @@ fn read_handshake(peer: &mut Peer) -> std::io::Result<Vec<u8>> {
     Ok(all_bytes[info_hash_start..info_hash_start + 20].to_vec())
 }
 
-type DictAndBytes = (BTreeMap<Vec<u8>, Bencode>, Vec<u8>);
-fn read_torrent(mut file: fs::File) -> Result<DictAndBytes, std::io::Error> {
+// Read .torrent file and de-bencode it, First value in a .torrent should be a bencoded dictionary.
+fn read_torrent(mut file: fs::File) -> Result<BTreeMap<Vec<u8>, Bencode>, std::io::Error> {
     let mut buf = Vec::with_capacity(1_000_000);
     let _bytes_read = file.read_to_end(&mut buf);
     let root_dict = match Bencode::decode_dispatch(&mut buf.iter().peekable())? {
         Bencode::Dict(d) => d,
         _ => panic!("Top level bencoded value is not a dictionary"),
     };
-    let info_bencoded = root_dict
-        .get("info".as_bytes())
-        .expect("No info value")
-        .encode_val();
-    Ok((root_dict, info_bencoded))
+    Ok(root_dict)
 }
 
+// Generates a peer id in the Azureus-style described here: https://wiki.theory.org/BitTorrentSpecification#peer_id
+// Choose "AI" as the client tag because I didn't see it in use.
 fn make_peer_id() -> String {
-    const PEER_TAG: [u8; 8] = *b"-AV0001-";
+    const PEER_TAG: [u8; 8] = *b"-AI0001-";
     use rand::Rng;
     let mut res = Vec::new();
     res.extend(PEER_TAG);
@@ -85,7 +82,8 @@ fn make_peer_id() -> String {
     String::from_utf8(res).unwrap()
 }
 
-//len(info_hash) + len(peer_id) + 8 reserved bytes + 1 byte declaring length of protocol string
+// Construct handshake byte string to send to peers
+//len(info_hash) + len(peer_id) + 8 reserved bytes + 1 (byte declaring length of protocol string)
 const BASE_HANDSHAKE_LENGTH: usize = 20 + 20 + 8 + 1;
 fn serialize_handshake(meta: &MetaInfo, peer_id: String) -> Vec<u8> {
     let pstr = "BitTorrent protocol".as_bytes();

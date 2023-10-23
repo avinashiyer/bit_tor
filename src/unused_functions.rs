@@ -1,3 +1,5 @@
+// Graveyard for code I don't want to use anymore, but didn't want to delete for sentimental reasons
+
 fn _flatten_announce_list(announce_list: &[Bencode]) -> Vec<String>{
     announce_list
         .iter()

@@ -1,14 +1,13 @@
 #![allow(dead_code)]
 
 use std::collections::BTreeMap;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 
 use percent_encoding::{percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 use bencode::Bencode;
 use file_dict::FileDict;
-use regex::bytes;
 
 pub mod bencode;
 pub mod decode;
@@ -102,6 +101,7 @@ pub struct Peer {
     pub buf_reader: BufReader<TcpStream>,
     pub buf_writer: BufWriter<TcpStream>,
     pub read_buffer: Vec<u8>,
+    pub bitfield: Vec<u8>,
 }
 
 impl Peer {
@@ -125,7 +125,8 @@ impl Peer {
             socket,
             buf_reader: BufReader::new(read_handle),
             buf_writer: BufWriter::new(write_handle),
-            read_buffer: Vec::<u8>::new(),
+            read_buffer: Vec::new(),
+            bitfield: Vec::new(),
         })
     }
 
@@ -173,7 +174,7 @@ impl Peer {
     }
 
     pub fn write_to_peer(&mut self, message: &[u8]) -> std::io::Result<()> {
-        self.buf_writer.write(message)?;
+        self.buf_writer.write_all(message)?;
         self.buf_writer.flush()
     }
 
@@ -230,4 +231,34 @@ pub fn vec_to_array<T, const N: usize>(v:Vec<T>) -> [T;N] {
             "Expected a Vector of length {N}, but got one that was {}",
             v.len())})
 }
-pub enum Message {}
+pub enum PeerPacket {
+    KeepAlive,
+    Choke,
+    Unchoke,
+    Interested,
+    NotInterested,
+    Have,
+    Bitfield,
+    Request,
+    Piece,
+    Cancel,
+    Port,
+}
+
+impl PeerPacket {
+    pub fn match_on_id(id:u8) -> PeerPacket {
+        match id {
+            0 => PeerPacket::Choke,
+            1 => PeerPacket::Unchoke,
+            2 => PeerPacket::Interested,
+            3 => PeerPacket::NotInterested,
+            4 => PeerPacket::Have,
+            5 => PeerPacket::Bitfield,
+            6 => PeerPacket::Request,
+            7 => PeerPacket::Piece,
+            8 => PeerPacket::Cancel,
+            9 => PeerPacket::Port,
+            _ => panic!("Unrecognized Peer Packet id: {id}")
+        }
+    }
+}
