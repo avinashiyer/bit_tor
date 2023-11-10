@@ -13,6 +13,7 @@ pub mod bencode;
 pub mod decode;
 pub mod file_dict;
 
+// Characters that need to be escaped in hashes. Characters that are 'removed' i.e. ".-_~" are allowed (not escaped)
 const ESCAPED_CHARACTERS: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'.')
     .remove(b'-')
@@ -31,6 +32,7 @@ pub struct MetaInfo {
     pub info_hash: [u8; 20],
     pub escaped_hash: String,
 }
+
 impl MetaInfo {
     pub fn construct_from_dict_v1(
         root_dict: BTreeMap<Vec<u8>, Bencode>,
@@ -180,15 +182,16 @@ impl Peer {
 
     pub fn read_peer_message(&mut self) -> std::io::Result<Vec<u8>> {
         const NUM_LENGTH_BYTES: usize = 4;
-        let length_prefix: [u8; 4] = vec_to_array(Peer::loop_read(&mut self.buf_reader, NUM_LENGTH_BYTES)?);
+        let length_prefix: [u8; 4] =
+            vec_to_array(Peer::loop_read(&mut self.buf_reader, NUM_LENGTH_BYTES)?);
         let length = u32::from_be_bytes(length_prefix);
         if length == 0 {
             return Ok(Vec::new());
         }
-        Ok(Peer::loop_read(&mut self.buf_reader, length as usize)?)
+        Peer::loop_read(&mut self.buf_reader, length as usize)
     }
 
-    
+    // Helper method that reads bytes_to_read bytes from passed TcpStream by looping until bytes_to_read
     pub fn loop_read(
         reader: &mut BufReader<TcpStream>,
         bytes_to_read: usize,
@@ -212,24 +215,30 @@ impl Peer {
     }
 }
 
+// Helper method to shorten a throwing of an InvalidData error. TODO: Change to a macro 
 pub fn make_bad_data_err(err_msg: &str) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidData, err_msg)
 }
 
+//Helper method that '\' escapes whitespaces and '\xx' escapes other non-printables  
 pub fn escape_u8_slice(src: &[u8]) -> String {
     String::from_utf8(
         src.iter()
-        .flat_map(|b| std::ascii::escape_default(*b))
-        .collect::<Vec<u8>>(),
+            .flat_map(|b| std::ascii::escape_default(*b))
+            .collect::<Vec<u8>>(),
     )
     .unwrap()
 }
 
-pub fn vec_to_array<T, const N: usize>(v:Vec<T>) -> [T;N] {
+// Helper method to make a fixed size array of size N from a vector of size N.
+// Used because certain reader methods require an array as a buffer to be filled
+pub fn vec_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
     v.try_into().unwrap_or_else(|v: Vec<T>| {
         panic!(
             "Expected a Vector of length {N}, but got one that was {}",
-            v.len())})
+            v.len()
+        )
+    })
 }
 pub enum PeerPacket {
     KeepAlive,
@@ -246,7 +255,7 @@ pub enum PeerPacket {
 }
 
 impl PeerPacket {
-    pub fn match_on_id(id:u8) -> PeerPacket {
+    pub fn match_on_id(id: u8) -> PeerPacket {
         match id {
             0 => PeerPacket::Choke,
             1 => PeerPacket::Unchoke,
@@ -258,7 +267,7 @@ impl PeerPacket {
             7 => PeerPacket::Piece,
             8 => PeerPacket::Cancel,
             9 => PeerPacket::Port,
-            _ => panic!("Unrecognized Peer Packet id: {id}")
+            _ => panic!("Unrecognized Peer Packet id: {id}"),
         }
     }
 }

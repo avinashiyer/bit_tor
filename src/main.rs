@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .for_each(|p| println!("Socket: {:?}", p.socket));
     let handshake = serialize_handshake(&meta_info, make_peer_id());
     for peer in peers.iter_mut() {
-        peer.write_to_peer(&handshake.as_slice())?;
+        peer.write_to_peer(handshake.as_slice())?;
     }
     dbg!(peers.len());
     dbg!("After Writes");
@@ -69,7 +69,7 @@ fn read_torrent(mut file: fs::File) -> Result<BTreeMap<Vec<u8>, Bencode>, std::i
 }
 
 // Generates a peer id in the Azureus-style described here: https://wiki.theory.org/BitTorrentSpecification#peer_id
-// Choose "AI" as the client tag because I didn't see it in use.
+// Chose "AI" as the client tag because I didn't see it in use.
 fn make_peer_id() -> String {
     const PEER_TAG: [u8; 8] = *b"-AI0001-";
     use rand::Rng;

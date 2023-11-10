@@ -1,7 +1,7 @@
 mod decode_tests {
     use bit_tor::bencode::Bencode;
     use std::{collections::BTreeMap, error::Error};
-    
+
     #[test]
     fn decode_pos_int() {
         let num = 98;

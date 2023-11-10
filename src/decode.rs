@@ -128,7 +128,7 @@ pub fn decode_dict(
                             escape_u8_slice(&k)
                         );
                         return Err(make_bad_data_err(&err_msg));
-                    } 
+                    }
                 }
                 return Ok(Bencode::Dict(parent));
             }

@@ -15,7 +15,7 @@ pub enum Bencode {
 
 impl Bencode {
     // Convenience method to decode a whole string and return all bencode values in a vec
-    pub fn decode_all(src: &[u8]) -> Result<Vec<Bencode>,std::io::Error> {
+    pub fn decode_all(src: &[u8]) -> Result<Vec<Bencode>, std::io::Error> {
         let mut vals = Vec::<Bencode>::new();
         let mut it = src.iter().peekable();
         while it.peek().is_some() {
@@ -28,7 +28,9 @@ impl Bencode {
         Ok(vals)
     }
 
-    pub fn decode_dispatch(byte_string: &mut Peekable<Iter<'_, u8>>) -> Result<Bencode,std::io::Error> {
+    pub fn decode_dispatch(
+        byte_string: &mut Peekable<Iter<'_, u8>>,
+    ) -> Result<Bencode, std::io::Error> {
         let mut val = Bencode::Stop;
         if let Some(ch) = byte_string.peek() {
             val = match **ch {
@@ -47,7 +49,10 @@ impl Bencode {
                     decode_dict(byte_string, BTreeMap::<Vec<u8>, Bencode>::new())?
                 }
                 a => {
-                    let s = format!("Strange value in decode_dispatch() found: {a}:\n\nIterator Dump: {:#X?}",byte_string.collect::<Vec<_>>());
+                    let s = format!(
+                        "Strange value in decode_dispatch() found: {a}:\n\nIterator Dump: {:#X?}",
+                        byte_string.collect::<Vec<_>>()
+                    );
                     let error = std::io::Error::new(std::io::ErrorKind::InvalidData, s);
                     return Err(error);
                 }
@@ -100,7 +105,6 @@ impl Bencode {
     }
 }
 
-
 impl Bencode {
     pub fn unwrap_message(&self) -> Vec<u8> {
         if let Bencode::Message(s) = self {
@@ -109,7 +113,7 @@ impl Bencode {
         panic!("Called unwrap_message on non message bencode");
     }
 
-    pub fn unwrap_dict(&self) -> &BTreeMap<Vec<u8>,Bencode> {
+    pub fn unwrap_dict(&self) -> &BTreeMap<Vec<u8>, Bencode> {
         if let Bencode::Dict(d) = self {
             return d;
         }
@@ -138,19 +142,19 @@ impl Clone for Bencode {
             Bencode::List(l) => Bencode::List(l.clone()),
             Bencode::Int(i) => Bencode::Int(*i),
             Bencode::Message(v) => Bencode::Message(v.clone()),
-            Bencode::Stop => Bencode::Stop
+            Bencode::Stop => Bencode::Stop,
         }
     }
 }
-
 
 impl fmt::Debug for Bencode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Bencode::Dict(d) => {
-                write!(f,"Dict")?;
-                f.debug_map().entries(d.iter().map
-                (|(k, v)| (String::from_utf8_lossy(k),v))).finish()
+                write!(f, "Dict")?;
+                f.debug_map()
+                    .entries(d.iter().map(|(k, v)| (String::from_utf8_lossy(k), v)))
+                    .finish()
             }
             Bencode::Int(i) => {
                 write!(f, "Int({})", i)
